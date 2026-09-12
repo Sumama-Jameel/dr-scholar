@@ -130,9 +130,22 @@ export default function ProfilePage() {
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f) return;
+
+    // Validate file type
+    const ext = f.name.split(".").pop()?.toLowerCase() ?? "";
+    const validExts = ["md", "txt", "json", "csv"];
+    const validTypes = ["text/plain", "text/markdown", "text/csv", "application/json", ""];
+    if (!validExts.includes(ext) && !validTypes.includes(f.type)) {
+      setParseMsg({ ok: false, text: `Unsupported file type ".${ext}" — upload a .md, .txt, .csv, or .json file.` });
+      return;
+    }
+
     const text = await f.text();
-    setDocText(text.slice(0, 20000));
-    setParseMsg({ ok: true, text: `Loaded "${f.name}" (${Math.round(text.length / 1024)} KB) — hit Parse.` });
+    const sliced = text.slice(0, 20000);
+    setDocText(sliced);
+    const kb = Math.round(text.length / 1024);
+    const warn = text.length > 20000 ? ` (truncated from ${kb} KB to 20 KB)` : ` (${kb} KB)`;
+    setParseMsg({ ok: true, text: `Loaded "${f.name}"${warn} — hit Parse.` });
   }
 
   async function parseDoc() {
@@ -154,8 +167,31 @@ export default function ProfilePage() {
       );
       setP((prev) => ({ ...prev, ...clean }));
       setDrafts({});
-      setParseMsg({ ok: true, text: "Parsed! Review the fields, then Save & meet your agent." });
+
+      // Build summary message
+      const extractedCount = data.extractedFields ?? Object.keys(clean).length;
+      const missingRequired = REQUIRED_FIELDS.filter((f) => {
+        const v = (clean as Record<string, unknown>)[f.key];
+        if (Array.isArray(v)) return v.length === 0;
+        if (typeof v === "boolean") return false;
+        return v === undefined || v === null || String(v).trim() === "";
+      });
+      let msg = `Extracted ${extractedCount} fields.`;
+      if (missingRequired.length > 0) {
+        msg += ` Still needed: ${missingRequired.map((f) => f.label).join(", ")}.`;
+      } else {
+        msg += " All required fields covered!";
+      }
+
+      setParseMsg({ ok: true, text: msg });
       setTab("form");
+
+      // Auto-expand first section with missing required fields
+      if (missingRequired.length > 0) {
+        setOpenSection(missingRequired[0].section);
+      } else {
+        setOpenSection("personal");
+      }
     } catch (e) {
       setParseMsg({ ok: false, text: `${(e as Error).message}` });
     } finally {

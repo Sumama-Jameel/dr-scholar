@@ -46,6 +46,40 @@ const PROFILE_RESPONSE_SCHEMA = {
   },
 };
 
+const EXTRACTION_SYSTEM_PROMPT = `You are a student profile extractor. Given a document (CV, resume, notes, or free-form text), extract structured data into a JSON object.
+
+FIELDS (only include fields you can extract — never invent values):
+- fullName: string — full name of the student
+- age: integer (10-80) — extract from "I'm 21", "born 2004", "Age: 22", etc.
+- citizenship: string — country of citizenship. Map "I'm Kenyan" → "Kenya", "Nigerian" → "Nigeria"
+- residence: string — country of current residence
+- level: one of "high_school" | "undergraduate" | "masters" | "phd" | "recent_graduate" | "professional" | "other"
+  Mapping: "bachelor's student" → undergraduate, "master's applicant" → masters, "PhD student" → phd, "final year undergrad" → undergraduate, "working professional" → professional
+- field: string — field of study (e.g. "Computer Science", "Mechanical Engineering")
+- fieldKeywords: string[] — specific skills, specializations, research areas (e.g. ["machine learning", "web dev", "climate science"])
+- gpa: string — GPA or grade exactly as written (e.g. "3.8/4.0", "87%", "First Class Honours", "8.7 CGPA")
+- graduationYear: integer — expected or actual graduation year
+- englishTests: string — English proficiency test + score (e.g. "IELTS 7.5", "TOEFL 100", "none")
+- otherTests: string — other standardized tests (e.g. "GRE 325", "SAT 1400", "GMAT 700")
+- targetCountries: string[] — countries the student wants to study/work in
+- remoteOnly: boolean — true if student can only do remote work/internships
+- needsFullFunding: boolean — true if student needs fully-funded options (no self-funding)
+- experience: string[] — work experience, projects, volunteering (one item per entry)
+- achievements: string[] — awards, publications, competitions, certifications
+- interests: string[] — academic/personal interests and hobbies
+- languages: string[] — languages spoken, with proficiency if mentioned (e.g. "English (fluent)", "French (A2)")
+- links: string[] — any URLs found (LinkedIn, GitHub, portfolio, etc.)
+- constraints: string — limitations mentioned (visa issues, financial constraints, relocation limits)
+- deadlineWindow: string — when the student can start (e.g. "Fall 2027", "January 2028", "immediately")
+- notes: string — any other relevant information not captured above
+
+RULES:
+- Extract aggressively: if a field can be reasonably inferred from context, include it
+- For lists, split on newlines, semicolons, or commas as appropriate
+- If a field cannot be determined from the document, OMIT it entirely (do not set to null, empty string, or undefined)
+- Convert ages/years to numbers where possible
+- Respond with ONLY the JSON object. No markdown fences, no explanation, no prose.`;
+
 export async function POST(req: Request) {
   const backends = llmBackends();
   if (!backends.some((b) => b.available)) {
@@ -73,18 +107,12 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { json } = await generateJson(
+    const { json, backend, model } = await generateJson(
       [
-        {
-          role: "system",
-          text:
-            "You convert filled student documents into a structured profile JSON. " +
-            "Fill ONLY fields the document supports; omit unknown fields entirely — never invent values. " +
-            "Convert ages/years to numbers where possible. Split lists into arrays. Respond with JSON only.",
-        },
+        { role: "system", text: EXTRACTION_SYSTEM_PROMPT },
         {
           role: "user",
-          text: `Extract the student profile from this document.\n\n"""\n${text.slice(0, 18000)}\n"""`,
+          text: `Extract the student profile from this document:\n\n"""\n${text.slice(0, 18000)}\n"""`,
         },
       ],
       PROFILE_RESPONSE_SCHEMA,
@@ -97,11 +125,27 @@ export async function POST(req: Request) {
         { status: 502 }
       );
     }
+
     const parsed = ProfileSchema.safeParse(json);
     const profile = (parsed.success ? parsed.data : json) as ProfileInput;
-    return Response.json({ profile });
+
+    // Count extracted fields (non-empty)
+    const fieldCount = Object.entries(profile).filter(([, v]) => {
+      if (Array.isArray(v)) return v.length > 0;
+      if (typeof v === "boolean") return true;
+      return v !== undefined && v !== null && String(v).trim() !== "";
+    }).length;
+
+    return Response.json({
+      profile,
+      extractedFields: fieldCount,
+      totalFields: 20,
+      backend,
+      model,
+    });
   } catch (e: unknown) {
     const err = e as Error;
+    console.error("[parse-profile] generation failed:", err.message);
     return Response.json(
       { error: "PARSER_FAILED", message: err.message || "Could not parse the document" },
       { status: 502 }

@@ -436,25 +436,53 @@ async function geminiStream(
 
 /* ----------------------- JSON generation ----------------------- */
 
-function tryParseJson(txt: string): unknown {
+/** Strip markdown code fences and try to extract valid JSON from LLM output. */
+function tryParseJson(txt: string): { ok: true; data: unknown } | { ok: false; raw: string } {
+  // strip ```json ... ``` fences
+  const stripped = txt.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
   try {
-    return JSON.parse(txt);
+    return { ok: true, data: JSON.parse(stripped) };
   } catch {
-    const start = txt.indexOf("{");
-    const end = txt.lastIndexOf("}");
+    // try to find a JSON object in the text
+    const start = stripped.indexOf("{");
+    const end = stripped.lastIndexOf("}");
     if (start >= 0 && end > start) {
       try {
-        return JSON.parse(txt.slice(start, end + 1));
+        return { ok: true, data: JSON.parse(stripped.slice(start, end + 1)) };
       } catch {
-        return null;
+        // fall through
       }
     }
-    return null;
+    return { ok: false, raw: txt.slice(0, 500) };
   }
 }
 
+/** Convert a Gemini-format schema into a human-readable prompt string. */
+function formatSchemaForPrompt(schema: Record<string, unknown>): string {
+  const props = (schema.properties ?? {}) as Record<string, { type?: string; enum?: string[]; items?: { type?: string } }>;
+  const lines: string[] = ["{"];
+  const entries = Object.entries(props);
+  for (let i = 0; i < entries.length; i++) {
+    const [key, def] = entries[i];
+    const comma = i < entries.length - 1 ? "," : "";
+    if (def.enum) {
+      lines.push(`  "${key}": "one of: ${def.enum.join(", ")}${comma}`);
+    } else if (def.type === "ARRAY") {
+      lines.push(`  "${key}": "array of ${def.items?.type ?? "string"}s${comma}`);
+    } else if (def.type === "INTEGER") {
+      lines.push(`  "${key}": "integer${comma}`);
+    } else if (def.type === "BOOLEAN") {
+      lines.push(`  "${key}": "boolean${comma}`);
+    } else {
+      lines.push(`  "${key}": "string${comma}`);
+    }
+  }
+  lines.push("}");
+  return lines.join("\n");
+}
+
 /**
- * Generate structured JSON. Tries Qwen first (instruction-based), then
+ * Generate structured JSON. Tries Groq first (instruction-based), then
  * Gemini with responseSchema if available.
  */
 export async function generateJson(
@@ -463,16 +491,24 @@ export async function generateJson(
   opts: { temperature?: number } = {}
 ): Promise<JsonResult> {
   const temperature = opts.temperature ?? 0.1;
+  let groqStatus = "skipped";
+  let geminiStatus = "skipped";
 
-  // Try groq first
+  // --- Groq (instruction-based JSON) ---
   if (process.env.GROQ_API_KEY) {
     const model = "qwen/qwen3.8-27b";
-    const fullMsgs = [...messages];
+    // Build messages: append schema instruction to system prompt, not as a separate user message
+    const fullMsgs = messages.map((m) => ({ ...m }));
     if (schema) {
-      fullMsgs.push({
-        role: "user",
-        text: `Respond with ONLY a JSON object matching this schema, no prose. Schema: ${JSON.stringify(schema)}`,
-      });
+      const schemaStr = formatSchemaForPrompt(schema);
+      const sysIdx = fullMsgs.findIndex((m) => m.role === "system");
+      const schemaInstruction =
+        `\n\nRespond with ONLY a JSON object matching this exact schema. No prose, no markdown fences, no explanation.\nSchema:\n${schemaStr}`;
+      if (sysIdx >= 0) {
+        fullMsgs[sysIdx] = { ...fullMsgs[sysIdx], text: fullMsgs[sysIdx].text + schemaInstruction };
+      } else {
+        fullMsgs.unshift({ role: "system", text: `You are a JSON extraction assistant.${schemaInstruction}` });
+      }
     }
     try {
       const res = await fetch(`${GROQ_BASE}/chat/completions`, {
@@ -486,23 +522,30 @@ export async function generateJson(
           messages: fullMsgs.map((m) => ({ role: m.role, content: m.text })),
           temperature,
           max_tokens: 2048,
-          response_format: { type: "json_object" },
         }),
       });
+      groqStatus = String(res.status);
       if (res.ok) {
         const data = (await res.json()) as {
           choices?: Array<{ message?: { content?: string } }>;
         };
         const txt = data.choices?.[0]?.message?.content ?? "";
-        const json = tryParseJson(txt);
-        return { json, text: txt, backend: "groq", model };
+        const result = tryParseJson(txt);
+        if (result.ok) {
+          return { json: result.data, text: txt, backend: "groq", model };
+        }
+        console.warn("[llm:generateJson] groq returned invalid JSON:", result.raw);
+      } else {
+        const errTxt = (await res.text()).slice(0, 200);
+        console.warn(`[llm:generateJson] groq error ${res.status}:`, errTxt);
       }
-    } catch {
-      // ignore, fall through
+    } catch (e: unknown) {
+      groqStatus = `error: ${(e as Error).message}`;
+      console.warn("[llm:generateJson] groq exception:", (e as Error).message);
     }
   }
 
-  // Fallback: Gemini with responseSchema (strict)
+  // --- Gemini (responseSchema) ---
   const key = geminiKey();
   if (key && schema) {
     const model = "gemini-2.5-flash";
@@ -515,31 +558,43 @@ export async function generateJson(
         parts: [{ text: m.text }],
       }));
 
-    const res = await fetch(`${GEMINI_BASE}/models/${model}:generateContent?key=${key}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents,
-        ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
-        generationConfig: {
-          temperature,
-          maxOutputTokens: 2048,
-          responseMimeType: "application/json",
-          responseSchema: schema,
-        },
-      }),
-    });
-    if (res.ok) {
-      const data = (await res.json()) as {
-        candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-      };
-      const txt = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-      const json = tryParseJson(txt);
-      return { json, text: txt, backend: "gemini", model };
+    try {
+      const res = await fetch(`${GEMINI_BASE}/models/${model}:generateContent?key=${key}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents,
+          ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
+          generationConfig: {
+            temperature,
+            maxOutputTokens: 2048,
+            responseMimeType: "application/json",
+            responseSchema: schema,
+          },
+        }),
+      });
+      geminiStatus = String(res.status);
+      if (res.ok) {
+        const data = (await res.json()) as {
+          candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+        };
+        const txt = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+        const result = tryParseJson(txt);
+        if (result.ok) {
+          return { json: result.data, text: txt, backend: "gemini", model };
+        }
+        console.warn("[llm:generateJson] gemini returned invalid JSON:", result.raw);
+      } else {
+        const errTxt = (await res.text()).slice(0, 200);
+        console.warn(`[llm:generateJson] gemini error ${res.status}:`, errTxt);
+      }
+    } catch (e: unknown) {
+      geminiStatus = `error: ${(e as Error).message}`;
+      console.warn("[llm:generateJson] gemini exception:", (e as Error).message);
     }
   }
 
-  throw new Error("No LLM backend available for JSON generation.");
+  throw new Error(`JSON generation failed. Groq: ${groqStatus}, Gemini: ${geminiStatus}`);
 }
 
 

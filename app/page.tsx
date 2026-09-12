@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  profileCompleteness,
   readProfileFromStorage,
   saveProfileToStorage,
   type ProfileInput,
@@ -25,10 +24,12 @@ const LEVELS: { value: string; label: string }[] = [
 const inputCls =
   "w-full rounded-lg border border-[--border] bg-[--bg-base]/60 px-3.5 py-2.5 text-sm text-[--text-primary] placeholder-[--text-muted] outline-none transition-colors focus:border-[--accent-primary] focus:ring-1 focus:ring-[--accent-primary]/30";
 
-function FieldLabel({ children, hint }: { children: React.ReactNode; hint?: string }) {
+function FieldLabel({ children, hint, required }: { children: React.ReactNode; hint?: string; required?: boolean }) {
   return (
     <span className="mb-1.5 flex items-baseline gap-2">
-      <span className="text-xs font-medium uppercase tracking-wide text-[--text-muted]">{children}</span>
+      <span className="text-xs font-medium uppercase tracking-wide text-[--text-muted]">
+        {children}{required ? <span className="text-[--accent-danger]">*</span> : null}
+      </span>
       {hint ? <span className="text-[11px] normal-case text-[--text-muted]/60">{hint}</span> : null}
     </span>
   );
@@ -44,11 +45,7 @@ const SECTIONS: { id: SectionId; label: string; icon: string }[] = [
   { id: "extra", label: "Additional notes", icon: "📝" },
 ];
 
-function sectionStatus(
-  id: SectionId,
-  p: ProfileInput,
-  c: ReturnType<typeof profileCompleteness>
-): "complete" | "partial" | "empty" {
+function sectionStatus(id: SectionId, p: ProfileInput): "complete" | "partial" | "empty" {
   const fields: Record<SectionId, string[]> = {
     personal: ["fullName", "age", "citizenship", "residence"],
     academic: ["level", "field", "gpa", "graduationYear"],
@@ -104,7 +101,6 @@ export default function ProfilePage() {
   useEffect(() => setP(readProfileFromStorage()), []);
 
   const set = (k: keyof ProfileInput, v: unknown) => setP((prev) => ({ ...prev, [k]: v }));
-  const c = profileCompleteness(p);
 
   function draftFor(k: string): string {
     if (drafts[k] !== undefined) return drafts[k];
@@ -167,8 +163,27 @@ export default function ProfilePage() {
     }
   }
 
-  const sectionStatuses = SECTIONS.map((s) => ({ ...s, status: sectionStatus(s.id, p, c) }));
-  const completeCount = sectionStatuses.filter((s) => s.status === "complete").length;
+  const sectionStatuses = SECTIONS.map((s) => ({ ...s, status: sectionStatus(s.id, p) }));
+
+  const REQUIRED_FIELDS: { key: keyof ProfileInput; label: string; section: SectionId }[] = [
+    { key: "fullName", label: "Full name", section: "personal" },
+    { key: "age", label: "Age", section: "personal" },
+    { key: "citizenship", label: "Citizenship", section: "personal" },
+    { key: "level", label: "Academic level", section: "academic" },
+    { key: "field", label: "Field of study", section: "academic" },
+    { key: "targetCountries", label: "Target countries", section: "goals" },
+    { key: "needsFullFunding", label: "Funding need", section: "goals" },
+  ];
+
+  function isFieldFilled(key: keyof ProfileInput): boolean {
+    const v = p[key];
+    if (Array.isArray(v)) return v.length > 0;
+    if (typeof v === "boolean") return true; // checkboxes are always "filled"
+    return v !== undefined && v !== null && String(v).trim() !== "";
+  }
+
+  const missingRequired = REQUIRED_FIELDS.filter((f) => !isFieldFilled(f.key));
+  const requiredFieldsMet = missingRequired.length === 0;
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -180,24 +195,6 @@ export default function ProfilePage() {
         <p className="mt-1.5 text-sm text-[--text-secondary]">
           Everything stays in <strong className="text-[--text-primary]">your browser</strong> (localStorage). The agent uses it to personalize research. Fill what you can — it asks for anything critical that&apos;s missing.
         </p>
-      </div>
-
-      {/* progress bar */}
-      <div className="mb-6 rounded-xl border border-[--border] bg-[--bg-surface] p-4">
-        <div className="flex items-center justify-between text-xs text-[--text-muted]">
-          <span>
-            Profile strength: <strong className="text-[--text-primary]">{c.score}%</strong>
-          </span>
-          <span>
-            {completeCount}/{SECTIONS.length} sections complete
-          </span>
-        </div>
-        <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-[--border]">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-[--accent-gold] to-[--accent-primary] transition-all duration-500"
-            style={{ width: `${c.score}%` }}
-          />
-        </div>
       </div>
 
       {/* tabs */}
@@ -262,7 +259,7 @@ export default function ProfilePage() {
         <div className="space-y-3">
           {SECTIONS.map((sec) => {
             const isOpen = openSection === sec.id;
-            const status = sectionStatus(sec.id, p, c);
+            const status = sectionStatus(sec.id, p);
             return (
               <div
                 key={sec.id}
@@ -287,15 +284,15 @@ export default function ProfilePage() {
                     {sec.id === "personal" && (
                       <div className="grid gap-4 md:grid-cols-2">
                         <label>
-                          <FieldLabel>Full name</FieldLabel>
+                          <FieldLabel required>Full name</FieldLabel>
                           <input className={inputCls} value={p.fullName ?? ""} onChange={(e) => set("fullName", e.target.value)} placeholder="Amina Yusuf" />
                         </label>
                         <label>
-                          <FieldLabel>Age</FieldLabel>
+                          <FieldLabel required>Age</FieldLabel>
                           <input type="number" min={10} max={80} className={inputCls} value={p.age ?? ""} onChange={(e) => set("age", e.target.value ? Number(e.target.value) : undefined)} placeholder="21" />
                         </label>
                         <label>
-                          <FieldLabel>Citizenship</FieldLabel>
+                          <FieldLabel required>Citizenship</FieldLabel>
                           <input className={inputCls} value={p.citizenship ?? ""} onChange={(e) => set("citizenship", e.target.value)} placeholder="Kenya" />
                         </label>
                         <label>
@@ -308,7 +305,7 @@ export default function ProfilePage() {
                     {sec.id === "academic" && (
                       <div className="grid gap-4 md:grid-cols-2">
                         <label>
-                          <FieldLabel>Academic level</FieldLabel>
+                          <FieldLabel required>Academic level</FieldLabel>
                           <select className={inputCls} value={p.level ?? ""} onChange={(e) => set("level", e.target.value || undefined)}>
                             {LEVELS.map((l) => (
                               <option key={l.value} value={l.value}>{l.label}</option>
@@ -316,7 +313,7 @@ export default function ProfilePage() {
                           </select>
                         </label>
                         <label>
-                          <FieldLabel>Field of study</FieldLabel>
+                          <FieldLabel required>Field of study</FieldLabel>
                           <input className={inputCls} value={p.field ?? ""} onChange={(e) => set("field", e.target.value)} placeholder="Computer Science" />
                         </label>
                         <label>
@@ -345,7 +342,7 @@ export default function ProfilePage() {
                     {sec.id === "goals" && (
                       <div className="grid gap-4 md:grid-cols-2">
                         <label>
-                          <FieldLabel>Target countries <span className="normal-case">(comma separated)</span></FieldLabel>
+                          <FieldLabel required>Target countries <span className="normal-case">(comma separated)</span></FieldLabel>
                           <input className={inputCls} value={(p.targetCountries ?? []).join(", ")} onChange={(e) => set("targetCountries", parseList(e.target.value))} placeholder="Germany, Canada, remote" />
                         </label>
                         <label>
@@ -372,7 +369,7 @@ export default function ProfilePage() {
                               onChange={(e) => set("needsFullFunding", e.target.checked)}
                               className="h-4 w-4 rounded border-[--border] bg-[--bg-base] accent-[--accent-primary]"
                             />
-                            I need fully-funded options only
+                            I need fully-funded options only <span className="text-[--accent-danger]">*</span>
                           </label>
                           <label className="flex items-center gap-2.5 text-sm text-[--text-secondary]">
                             <input
@@ -441,10 +438,16 @@ export default function ProfilePage() {
       )}
 
       {/* save button */}
-      <div className="sticky bottom-4 mt-8 flex justify-end">
+      <div className="sticky bottom-4 mt-8 flex flex-col items-end gap-2">
+        {!requiredFieldsMet ? (
+          <span className="text-xs text-[--text-muted]">
+            Fill required fields: {missingRequired.map((f) => f.label).join(", ")}
+          </span>
+        ) : null}
         <button
           onClick={save}
-          className="rounded-xl bg-[--accent-primary] px-7 py-3 text-sm font-bold text-white shadow-xl shadow-[--accent-primary]/25 transition-all hover:bg-[--accent-primary-light] hover:shadow-[--accent-primary]/30"
+          disabled={!requiredFieldsMet}
+          className="rounded-xl bg-[--accent-primary] px-7 py-3 text-sm font-bold text-white shadow-xl shadow-[--accent-primary]/25 transition-all hover:bg-[--accent-primary-light] hover:shadow-[--accent-primary]/30 disabled:opacity-40 disabled:cursor-not-allowed"
           style={{ fontFamily: "var(--font-display)" }}
         >
           Save profile & meet your agent →

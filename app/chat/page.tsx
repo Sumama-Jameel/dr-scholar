@@ -15,10 +15,10 @@ type Health = { ok: boolean; model: string; hasKey: boolean; keySource?: string 
 type Msg = { id: string; role: "user" | "assistant"; text: string; tools: ToolEvent[] };
 
 const SUGGESTIONS = [
-  "🔬 Do a full deep scan for me — scholarships + internships",
-  "🎓 Find scholarships only",
-  "💼 Find internships only",
-  "❓ I haven't filled the profile — ask me the key questions",
+  { icon: "🔬", label: "Full deep scan", desc: "Scholarships + internships matched to your profile" },
+  { icon: "🎓", label: "Scholarships only", desc: "Focus on funding opportunities" },
+  { icon: "💼", label: "Internships only", desc: "Find work experiences and placements" },
+  { icon: "💬", label: "Ask me first", desc: "I haven't filled my profile — ask the key questions" },
 ];
 
 let idCounter = 0;
@@ -130,7 +130,7 @@ export default function ChatPage() {
         else if (ev.t === "error")
           patchAssistant(assistantId, (m) => ({
             ...m,
-            text: (m.text ? m.text + "\n\n" : "") + `⚠️ ${ev.message ?? "error"}`,
+            text: (m.text ? m.text + "\n\n" : "") + `${ev.message ?? "error"}`,
           }));
         else if (ev.t === "done") {
           streamDone = true;
@@ -148,14 +148,12 @@ export default function ChatPage() {
         }
         if (done) break;
       }
-      // Flush any trailing data that arrived without a final newline.
       processLine(buffer.trim());
-      // If the server closed without sending a done event, note truncation.
       if (!gotDoneEvent) {
         patchAssistant(assistantId, (m) => ({
           ...m,
           text: m.text.trim()
-            ? m.text.trimEnd() + "\n\n⚠️ _Response appears to have been cut off (stream ended early). Try again or ask for a shorter answer._"
+            ? m.text.trimEnd() + "\n\n_Response appears to have been cut off (stream ended early). Try again or ask for a shorter answer._"
             : m.text,
         }));
       }
@@ -205,9 +203,10 @@ export default function ChatPage() {
 
   return (
     <div className="mx-auto flex h-[calc(100vh-10rem)] max-w-4xl flex-col">
+      {/* health / profile bars */}
       {health && !health.hasKey ? (
-        <div className="mb-3 rounded-xl border border-red-900/60 bg-red-950/40 p-3 text-sm text-red-200">
-          ⚠️ No Gemini key found (looked for GEMINI_API_KEY / GOOGLE_API_KEY env vars) — the agent
+        <div className="mb-3 rounded-xl border border-[--accent-danger]/30 bg-[--accent-danger]/5 p-3 text-sm text-[--accent-danger]">
+          No Gemini key found (looked for GEMINI_API_KEY / GOOGLE_API_KEY env vars) — the agent
           can&apos;t think. Free key:{" "}
           <a className="underline" href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">
             aistudio.google.com/apikey
@@ -216,80 +215,102 @@ export default function ChatPage() {
         </div>
       ) : null}
       {health?.hasKey ? (
-        <div className="mb-3 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
-          <span className="rounded-full bg-emerald-950/60 px-2 py-0.5 text-emerald-300">
-            🩺 Dr Scholar · ready
+        <div className="mb-3 flex flex-wrap items-center gap-2 text-[11px] text-[--text-muted]">
+          <span className="rounded-full bg-[--accent-success]/10 px-2.5 py-0.5 text-[--accent-success]">
+            Dr Scholar · ready
           </span>
           {health.extras.tavily ? (
-            <span className="rounded-full bg-slate-800/70 px-2 py-0.5">Tavily ✓</span>
+            <span className="rounded-full bg-[--bg-surface] px-2.5 py-0.5">Tavily ✓</span>
           ) : null}
         </div>
       ) : null}
       {!hasProfile ? (
-        <div className="mb-3 rounded-xl border border-amber-900/60 bg-amber-950/30 p-3 text-sm text-amber-200">
+        <div className="mb-3 rounded-xl border border-[--accent-gold]/30 bg-[--accent-gold]/5 p-3 text-sm text-[--accent-gold]">
           No profile yet — the agent will ask you a few questions, or{" "}
           <Link href="/" className="font-semibold underline">
             build your profile first →
           </Link>
         </div>
-            ) : (
-        <div className="mb-3 flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900/40 px-3 py-1.5 text-xs text-slate-400">
+      ) : (
+        <div className="mb-3 flex items-center justify-between rounded-xl border border-[--border] bg-[--bg-surface] px-3.5 py-2 text-xs text-[--text-muted]">
           <span>
-            🎓 {profile.fullName || "You"} · {(profile.level ?? "level?").replace(/_/g, " ")} ·{" "}
+            <strong className="text-[--text-primary]">{profile.fullName || "You"}</strong> · {(profile.level ?? "level?").replace(/_/g, " ")} ·{" "}
             {profile.field ?? "field?"}{profile.citizenship ? ` · ${profile.citizenship}` : ""}
           </span>
-          <Link href="/" className="underline hover:text-slate-200">
+          <Link href="/" className="text-[--accent-primary-light] underline decoration-[--accent-primary]/30 hover:decoration-[--accent-primary]">
             edit
           </Link>
         </div>
       )}
 
-      <div className="flex-1 space-y-4 overflow-y-auto rounded-xl border border-slate-800 bg-slate-950/40 p-4">
+      {/* messages area */}
+      <div className="flex-1 space-y-4 overflow-y-auto rounded-xl border border-[--border] bg-[--bg-surface]/50 p-4">
         {msgs.length === 0 ? (
           <div className="py-8 text-center">
-            <div className="text-5xl">🩺</div>
-            <h2 className="mt-3 text-lg font-bold text-white">Dr Scholar is ready</h2>
-            <p className="mx-auto mt-1 max-w-md text-sm text-slate-400">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[--accent-primary] to-[--accent-primary-light] text-2xl text-white shadow-xl shadow-[--accent-primary]/20">
+              DS
+            </div>
+            <h2 className="text-xl font-bold text-[--text-primary]" style={{ fontFamily: "var(--font-display)" }}>
+              Dr Scholar is ready
+            </h2>
+            <p className="mx-auto mt-2 max-w-md text-sm text-[--text-secondary]">
               I deep-research real scholarships &amp; internships matched to YOUR profile, verify
               deadlines on official pages, and hand you an apply-plan. Pick a starting point:
             </p>
-            <div className="mt-5 flex flex-wrap justify-center gap-2">
+            <div className="mx-auto mt-6 grid max-w-lg grid-cols-2 gap-3">
               {SUGGESTIONS.map((s) => (
                 <button
-                  key={s}
-                  onClick={() => send(s)}
-                  className="rounded-full border border-slate-700 bg-slate-900/70 px-4 py-2 text-sm text-slate-200 hover:border-indigo-500 hover:text-white"
+                  key={s.label}
+                  onClick={() => send(s.label === "Ask me first" ? s.desc : `Do a full ${s.label.toLowerCase()} for me`)}
+                  className="group rounded-xl border border-[--border] bg-[--bg-surface] p-4 text-left transition-all hover:border-[--accent-primary]/40 hover:bg-[--bg-surface-hover] hover:shadow-lg hover:shadow-[--accent-primary]/5"
                 >
-                  {s}
+                  <span className="text-xl">{s.icon}</span>
+                  <p className="mt-2 text-sm font-semibold text-[--text-primary]" style={{ fontFamily: "var(--font-display)" }}>
+                    {s.label}
+                  </p>
+                  <p className="mt-0.5 text-xs text-[--text-muted]">{s.desc}</p>
                 </button>
               ))}
             </div>
           </div>
         ) : null}
+
         {msgs.map((m) =>
           m.role === "user" ? (
             <div key={m.id} className="flex justify-end">
-              <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-indigo-600/90 px-4 py-2.5 text-sm text-white">
+              <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-gradient-to-br from-[--accent-primary] to-[#4F46E5] px-4 py-2.5 text-sm text-white shadow-md shadow-[--accent-primary]/10">
                 {m.text}
               </div>
             </div>
           ) : (
-            <div key={m.id} className="w-full space-y-1">
+            <div key={m.id} className="w-full space-y-1.5">
               {m.tools.map((ev, i) => (
                 <ToolChip key={i} ev={ev} />
               ))}
-              {m.text.trim() ? <MiniMarkdown text={m.text} /> : null}
+              {m.text.trim() ? (
+                <div className="rounded-xl border-l-2 border-[--accent-primary]/20 pl-4">
+                  <MiniMarkdown text={m.text} />
+                </div>
+              ) : null}
             </div>
           )
         )}
-        {busy ? <div className="shimmer h-1.5 w-40 rounded-full" /> : null}
+
+        {busy ? (
+          <div className="flex items-center gap-2 text-sm text-[--text-muted]">
+            <span className="pulse-dot h-2 w-2 rounded-full bg-[--accent-primary]" />
+            <span>Thinking…</span>
+          </div>
+        ) : null}
         <div ref={bottomRef} />
       </div>
 
+      {/* error */}
       {error ? (
-        <div className="mt-2 rounded-lg bg-red-950/50 p-3 text-sm text-red-200">⚠️ {error}</div>
+        <div className="mt-2 rounded-lg bg-[--accent-danger]/10 p-3 text-sm text-[--accent-danger]">{error}</div>
       ) : null}
 
+      {/* input area */}
       <div className="mt-3 flex items-end gap-2">
         <textarea
           value={input}
@@ -303,36 +324,37 @@ export default function ChatPage() {
           placeholder="Ask anything: 'find me internships for next summer', 'am I eligible for DAAD?', …"
           rows={2}
           disabled={busy}
-          className="flex-1 resize-none rounded-xl border border-slate-700 bg-slate-900/70 px-4 py-3 text-sm text-slate-100 placeholder-slate-500 outline-none focus:border-indigo-500 disabled:opacity-50"
+          className="flex-1 resize-none rounded-xl border border-[--border] bg-[--bg-surface] px-4 py-3 text-sm text-[--text-primary] placeholder-[--text-muted] outline-none transition-colors focus:border-[--accent-primary] focus:ring-1 focus:ring-[--accent-primary]/30 disabled:opacity-50"
         />
         {busy ? (
           <button
             onClick={stop}
-            className="rounded-xl bg-slate-700 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-600"
+            className="rounded-xl bg-[--bg-surface] border border-[--border] px-5 py-3 text-sm font-semibold text-[--text-primary] transition-colors hover:bg-[--accent-danger]/10 hover:border-[--accent-danger]/30 hover:text-[--accent-danger]"
           >
-            ■ Stop
+            Stop
           </button>
         ) : (
           <button
             onClick={() => send(input)}
             disabled={!input.trim()}
-            className="rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-40"
+            className="rounded-xl bg-[--accent-primary] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-[--accent-primary]/20 transition-all hover:bg-[--accent-primary-light] disabled:opacity-40"
           >
             Send ↵
           </button>
         )}
       </div>
-      <div className="mt-2 flex items-center justify-between text-[11px] text-slate-600">
+
+      {/* footer hints */}
+      <div className="mt-2 flex items-center justify-between text-[11px] text-[--text-muted]">
         <span>Enter to send · Shift+Enter for newline · deep scans may take a few minutes</span>
         <button
           onClick={downloadReport}
           disabled={!msgs.some((m) => m.role === "assistant" && m.text.trim())}
-          className="rounded-md border border-slate-800 px-2 py-1 text-slate-400 hover:border-indigo-600 hover:text-slate-200 disabled:opacity-30"
+          className="rounded-md border border-[--border] px-2.5 py-1 text-[--text-muted] transition-colors hover:border-[--accent-primary] hover:text-[--text-primary] disabled:opacity-30"
         >
-          ⬇ Download report (.md)
+          Download report (.md)
         </button>
       </div>
     </div>
   );
 }
-

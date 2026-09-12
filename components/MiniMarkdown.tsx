@@ -3,14 +3,19 @@
 import React from "react";
 
 /**
- * Tiny dependency-free Markdown renderer (headings, tables, lists, links,
- * bold/italic/code). Good enough for agent reports without a heavy lib.
+ * Dependency-free Markdown renderer for LLM output.
+ * Supports: headings (1-6), bold, italic, bold+italic, strikethrough, inline code,
+ * links, bare URLs, ordered/unordered/task lists, blockquotes (with paragraphs),
+ * fenced code blocks, tables (with alignment), horizontal rules.
  */
+
+/* ─── Inline parser ─── */
 
 function inline(text: string, keyBase: string): React.ReactNode[] {
   const out: React.ReactNode[] = [];
+  // Order matters: *** before ** and *, ~~ before bare text
   const re =
-    /(\*\*[^*]+\**)|(\*[^*\n]+\*)|(`[^`]+`)|(\[[^\]]+\]\((?:https?:\/\/)[^\s)]+\))|((?:https?:\/\/)[^\s<>()]+)/g;
+    /(\*\*\*[^*]+\*\*\*)|(\*\*[^*]+\*\*)|(\*[^*\n]+\*)|(~~[^~]+~~)|(`[^`]+`)|(\[[^\]]+\]\((?:https?:\/\/)[^\s)]+\))|((?:https?:\/\/)[^\s<>()]+)/g;
   let last = 0;
   let m: RegExpExecArray | null;
   let i = 0;
@@ -18,11 +23,19 @@ function inline(text: string, keyBase: string): React.ReactNode[] {
     if (m.index > last) out.push(text.slice(last, m.index));
     const token = m[0];
     const key = `${keyBase}-i${i++}`;
-    if (token.startsWith("**")) {
-      out.push(<strong key={key}>{token.slice(2, -2)}</strong>);
+    if (token.startsWith("***")) {
+      out.push(
+        <strong key={key} className="text-[--text-primary]">
+          <em>{token.slice(3, -3)}</em>
+        </strong>
+      );
+    } else if (token.startsWith("**")) {
+      out.push(<strong key={key} className="text-[--text-primary]">{token.slice(2, -2)}</strong>);
+    } else if (token.startsWith("~~")) {
+      out.push(<del key={key} className="text-[--text-muted] line-through">{token.slice(2, -2)}</del>);
     } else if (token.startsWith("`")) {
       out.push(
-        <code key={key} className="rounded bg-slate-800 px-1 py-0.5 text-[0.85em] text-indigo-200">
+        <code key={key} className="rounded-md bg-[--bg-surface] px-1.5 py-0.5 text-[0.85em] text-[--accent-primary-light]" style={{ fontFamily: "var(--font-mono)" }}>
           {token.slice(1, -1)}
         </code>
       );
@@ -31,7 +44,7 @@ function inline(text: string, keyBase: string): React.ReactNode[] {
       if (mm) {
         out.push(
           <a key={key} href={mm[2]} target="_blank" rel="noreferrer"
-             className="text-indigo-300 underline decoration-indigo-500/40 hover:text-indigo-200">
+             className="text-[--accent-primary-light] underline decoration-[--accent-primary]/30 hover:decoration-[--accent-primary] hover:text-[#a5b4fc]">
             {mm[1]}
           </a>
         );
@@ -39,7 +52,7 @@ function inline(text: string, keyBase: string): React.ReactNode[] {
     } else if (token.startsWith("http")) {
       out.push(
         <a key={key} href={token} target="_blank" rel="noreferrer"
-           className="break-all text-indigo-300 underline decoration-indigo-500/40 hover:text-indigo-200">
+           className="break-all text-[--accent-primary-light] underline decoration-[--accent-primary]/30 hover:decoration-[--accent-primary] hover:text-[#a5b4fc]">
           {token.length > 60 ? token.slice(0, 57) + "…" : token}
         </a>
       );
@@ -52,149 +65,303 @@ function inline(text: string, keyBase: string): React.ReactNode[] {
   return out;
 }
 
+/* ─── Block types ─── */
+
 type Block =
   | { type: "h"; level: number; text: string }
   | { type: "p"; text: string }
-  | { type: "ul"; items: string[] }
-  | { type: "ol"; items: string[] }
-  | { type: "quote"; text: string }
-  | { type: "code"; text: string }
+  | { type: "ul"; items: { text: string; task?: boolean; checked?: boolean }[] }
+  | { type: "ol"; items: { text: string; task?: boolean; checked?: boolean }[] }
+  | { type: "quote"; paragraphs: string[] }
+  | { type: "code"; lang: string; text: string }
   | { type: "hr" }
-  | { type: "table"; rows: string[][] };
+  | { type: "table"; align: ("left" | "center" | "right")[]; rows: string[][] };
+
+/* ─── Block parser ─── */
 
 function parseBlocks(src: string): Block[] {
   const lines = src.split("\n");
   const blocks: Block[] = [];
   let i = 0;
+
   while (i < lines.length) {
     const line = lines[i];
+
+    // blank line → skip
     if (line.trim() === "") { i++; continue; }
+
+    // fenced code block
     if (line.trim().startsWith("```")) {
+      const lang = line.trim().slice(3).trim();
       const buf: string[] = [];
       i++;
       while (i < lines.length && !lines[i].trim().startsWith("```")) {
         buf.push(lines[i]); i++;
       }
       i++;
-      // If the code block actually contains a markdown table (header + separator),
-      // render it as a table instead of raw code so tables aren't hidden in <pre>.
+      // check if it's actually a table inside a code fence
+      const codeText = buf.join("\n");
+      const codeLines = buf.filter((l) => l.trim() !== "");
       const isTable =
-        buf.length >= 2 &&
-        /^\s*\|.*\|\s*$/.test(buf[0]) &&
-        /^\s*\|[\s:|-]+\|\s*$/.test(buf[1]);
+        codeLines.length >= 2 &&
+        /^\s*\|.*\|\s*$/.test(codeLines[0]) &&
+        /^\s*\|[\s:|-]+\|\s*$/.test(codeLines[1]);
       if (isTable) {
-        const rows: string[][] = buf
-          .filter((l) => /^\s*\|.*\|\s*$/.test(l))
-          .map((l) => l.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((c) => c.trim()));
-        blocks.push({ type: "table", rows });
-        continue;
+        const parsed = parseTable(codeLines);
+        if (parsed) { blocks.push(parsed); continue; }
       }
-      blocks.push({ type: "code", text: buf.join("\n") });
+      blocks.push({ type: "code", lang, text: codeText });
       continue;
     }
-    const h = line.match(/^(#{1,4})\s+(.*)$/);
+
+    // heading: # through ######
+    const h = line.match(/^(#{1,6})\s+(.*)$/);
     if (h) { blocks.push({ type: "h", level: h[1].length, text: h[2] }); i++; continue; }
-    if (/^\s*(---+|\*\*\*+)\s*$/.test(line)) { blocks.push({ type: "hr" }); i++; continue; }
+
+    // horizontal rule: 3+ of the same character (-, *, or _) with optional spaces
+    if (/^\s*([-*_])\s*(\1\s*){2,}$/.test(line)) { blocks.push({ type: "hr" }); i++; continue; }
+
+    // table (pipe-delimited)
     if (/^\s*\|.*\|\s*$/.test(line)) {
-      const rows: string[][] = [];
+      const tableLines: string[] = [];
       while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) {
-        const cells = lines[i].trim().replace(/^\|/, "").replace(/\|$/, "")
-          .split("|").map((c) => c.trim());
-        if (!cells.every((c) => /^:?-{2,}:?$/.test(c) || c === "")) rows.push(cells);
+        tableLines.push(lines[i]); i++;
+      }
+      const parsed = parseTable(tableLines);
+      if (parsed) blocks.push(parsed);
+      continue;
+    }
+
+    // blockquote (collect all > lines, preserve blank lines as paragraph breaks)
+    if (/^\s*>\s?/.test(line)) {
+      const paras: string[] = [];
+      let current: string[] = [];
+      while (i < lines.length && /^\s*>\s?/.test(lines[i])) {
+        const content = lines[i].replace(/^\s*>\s?/, "");
+        if (content.trim() === "") {
+          // blank line in blockquote → paragraph break
+          if (current.length > 0) { paras.push(current.join(" ")); current = []; }
+        } else {
+          current.push(content);
+        }
         i++;
       }
-      blocks.push({ type: "table", rows });
+      if (current.length > 0) paras.push(current.join(" "));
+      blocks.push({ type: "quote", paragraphs: paras.length > 0 ? paras : [""] });
       continue;
     }
-    if (/^\s*[-*•]\s+/.test(line)) {
-      const items: string[] = [];
-      while (i < lines.length && /^\s*[-*•]\s+/.test(lines[i])) {
-        items.push(lines[i].replace(/^\s*[-*•]\s+/, "")); i++;
+
+    // task list item: - [ ] or - [x]
+    if (/^\s*[-*•]\s+\[[ xX]\]\s+/.test(line)) {
+      const items: { text: string; task: boolean; checked: boolean }[] = [];
+      while (i < lines.length && /^\s*[-*•]\s+\[[ xX]\]\s+/.test(lines[i])) {
+        const m = lines[i].match(/^\s*[-*•]\s+\[([ xX])\]\s+(.*)/);
+        if (m) items.push({ text: m[2], task: true, checked: m[1] !== " " });
+        i++;
       }
       blocks.push({ type: "ul", items });
       continue;
     }
+
+    // unordered list
+    if (/^\s*[-*•]\s+/.test(line)) {
+      const items: { text: string; task: boolean; checked: boolean }[] = [];
+      while (i < lines.length && /^\s*[-*•]\s+/.test(lines[i])) {
+        items.push({ text: lines[i].replace(/^\s*[-*•]\s+/, ""), task: false, checked: false });
+        i++;
+      }
+      blocks.push({ type: "ul", items });
+      continue;
+    }
+
+    // ordered list
     if (/^\s*\d+[.)]\s+/.test(line)) {
-      const items: string[] = [];
+      const items: { text: string; task: boolean; checked: boolean }[] = [];
       while (i < lines.length && /^\s*\d+[.)]\s+/.test(lines[i])) {
-        items.push(lines[i].replace(/^\s*\d+[.)]\s+/, "")); i++;
+        items.push({ text: lines[i].replace(/^\s*\d+[.)]\s+/, ""), task: false, checked: false });
+        i++;
       }
       blocks.push({ type: "ol", items });
       continue;
     }
-    if (/^\s*>\s?/.test(line)) {
-      const buf: string[] = [];
-      while (i < lines.length && /^\s*>\s?/.test(lines[i])) {
-        buf.push(lines[i].replace(/^\s*>\s?/, "")); i++;
-      }
-      blocks.push({ type: "quote", text: buf.join(" ") });
-      continue;
-    }
+
+    // paragraph (collect until blank line or block-level syntax)
     const buf: string[] = [];
     while (
       i < lines.length &&
       lines[i].trim() !== "" &&
-      !/^(#{1,4})\s|^\s*[-*•]\s|^\s*\d+[.)]\s|^\s*>|^\s*\||^\s*```/.test(lines[i])
+      !/^(#{1,6})\s|^\s*[-*•]\s|^\s*\d+[.)]\s|^\s*>|^\s*\||^\s*```|^\s*([-*_])\s*(\1\s*){2,}/.test(lines[i])
     ) {
       buf.push(lines[i]); i++;
     }
     blocks.push({ type: "p", text: buf.join("\n") });
   }
+
   return blocks;
 }
 
+/* ─── Table parser ─── */
+
+function parseTable(lines: string[]): Block | null {
+  if (lines.length < 2) return null;
+
+  const parseRow = (l: string): string[] =>
+    l.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((c) => c.trim());
+
+  const header = parseRow(lines[0]);
+  const sepLine = lines[1];
+  const sepCells = parseRow(sepLine);
+
+  // alignment from separator row
+  const align: ("left" | "center" | "right")[] = sepCells.map((c) => {
+    const trimmed = c.trim();
+    if (/^:-+:$/.test(trimmed)) return "center";
+    if (/^-+:$/.test(trimmed)) return "right";
+    return "left";
+  });
+
+  // ensure align array matches header width
+  while (align.length < header.length) align.push("left");
+
+  const rows: string[][] = [header];
+  for (let j = 2; j < lines.length; j++) {
+    const cells = parseRow(lines[j]);
+    // skip separator-like rows (shouldn't appear but safety)
+    if (cells.every((c) => /^:?-{2,}:?$/.test(c) || c === "")) continue;
+    rows.push(cells);
+  }
+
+  return { type: "table", align, rows };
+}
+
+/* ─── Component ─── */
+
 export default function MiniMarkdown({ text, className = "" }: { text: string; className?: string }) {
   const blocks = React.useMemo(() => parseBlocks(text), [text]);
+  const headingCls = [
+    "", // 0 (unused)
+    "text-2xl font-bold",   // h1
+    "text-xl font-bold",    // h2
+    "text-lg font-semibold", // h3
+    "text-base font-semibold", // h4
+    "text-sm font-semibold uppercase tracking-wide", // h5
+    "text-xs font-semibold uppercase tracking-wider", // h6
+  ];
+
   return (
     <div className={`md-body space-y-3 ${className}`}>
       {blocks.map((b, i) => {
+        const key = `b${i}`;
         switch (b.type) {
           case "h": {
-            const cls =
-              b.level === 1 ? "text-xl font-bold text-white"
-              : b.level === 2 ? "text-lg font-bold text-white"
-              : b.level === 3 ? "text-base font-semibold text-slate-100"
-              : "text-sm font-semibold uppercase tracking-wide text-slate-300";
-            return <p key={i} className={cls}>{inline(b.text, `h${i}`)}</p>;
+            const Tag = `h${b.level}` as "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
+            return (
+              <Tag key={key} className={`${headingCls[b.level] ?? headingCls[6]} text-[--text-primary]`} style={{ fontFamily: "var(--font-display)" }}>
+                {inline(b.text, `${key}-h`)}
+              </Tag>
+            );
           }
           case "p":
-            return <p key={i} className="whitespace-pre-wrap leading-relaxed">{inline(b.text, `p${i}`)}</p>;
+            return <p key={key} className="whitespace-pre-wrap leading-relaxed">{inline(b.text, `${key}-p`)}</p>;
           case "ul":
             return (
-              <ul key={i} className="list-disc space-y-1 pl-5">
-                {b.items.map((it, j) => <li key={j}>{inline(it, `ul${i}-${j}`)}</li>)}
+              <ul key={key} className="list-disc space-y-1 pl-5">
+                {b.items.map((it, j) => (
+                  <li key={j} className={it.task ? "list-none -ml-5" : ""}>
+                    {it.task ? (
+                      <span className="inline-flex items-center gap-2">
+                        <span
+                          className={`inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] ${
+                            it.checked
+                              ? "border-[--accent-primary] bg-[--accent-primary] text-white"
+                              : "border-[--text-muted]/50 bg-[--bg-base]"
+                          }`}
+                        >
+                          {it.checked ? "✓" : ""}
+                        </span>
+                        <span className={it.checked ? "text-[--text-muted] line-through" : ""}>
+                          {inline(it.text, `${key}-li${j}`)}
+                        </span>
+                      </span>
+                    ) : (
+                      inline(it.text, `${key}-li${j}`)
+                    )}
+                  </li>
+                ))}
               </ul>
             );
           case "ol":
             return (
-              <ol key={i} className="list-decimal space-y-1 pl-5">
-                {b.items.map((it, j) => <li key={j}>{inline(it, `ol${i}-${j}`)}</li>)}
+              <ol key={key} className="list-decimal space-y-1 pl-5">
+                {b.items.map((it, j) => (
+                  <li key={j} className={it.task ? "list-none -ml-5" : ""}>
+                    {it.task ? (
+                      <span className="inline-flex items-center gap-2">
+                        <span
+                          className={`inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] ${
+                            it.checked
+                              ? "border-[--accent-primary] bg-[--accent-primary] text-white"
+                              : "border-[--text-muted]/50 bg-[--bg-base]"
+                          }`}
+                        >
+                          {it.checked ? "✓" : ""}
+                        </span>
+                        <span className={it.checked ? "text-[--text-muted] line-through" : ""}>
+                          {inline(it.text, `${key}-oli${j}`)}
+                        </span>
+                      </span>
+                    ) : (
+                      inline(it.text, `${key}-oli${j}`)
+                    )}
+                  </li>
+                ))}
               </ol>
             );
           case "quote":
             return (
-              <blockquote key={i} className="border-l-2 border-indigo-500/50 pl-3 italic text-slate-300">
-                {inline(b.text, `q${i}`)}
+              <blockquote key={key} className="rounded-r-lg border-l-[3px] border-[--accent-primary] bg-[--accent-primary]/5 pl-4 pr-3 py-2.5 text-[--text-secondary]">
+                {b.paragraphs.map((p, j) => (
+                  <p key={j} className={j > 0 ? "mt-2" : ""}>
+                    {inline(p, `${key}-q${j}`)}
+                  </p>
+                ))}
               </blockquote>
             );
           case "code":
             return (
-              <pre key={i} className="overflow-x-auto rounded-lg bg-slate-900 p-3 text-xs text-slate-300">
+              <pre key={key} className="overflow-x-auto rounded-lg border border-[--border] bg-[--bg-base] p-3.5 text-xs text-[--text-secondary]" style={{ fontFamily: "var(--font-mono)" }}>
+                {b.lang ? (
+                  <span className="mb-1 block text-[10px] uppercase tracking-wider text-[--text-muted]">{b.lang}</span>
+                ) : null}
                 <code>{b.text}</code>
               </pre>
             );
           case "hr":
-            return <hr key={i} className="border-slate-800" />;
+            return <hr key={key} className="border-[--border]" />;
           case "table": {
             const [head, ...rows] = b.rows;
             if (!head) return null;
             return (
-              <div key={i} className="overflow-x-auto">
+              <div key={key} className="overflow-x-auto rounded-lg border border-[--border]">
                 <table>
-                  <thead><tr>{head.map((c, j) => <th key={j}>{inline(c, `th${i}-${j}`)}</th>)}</tr></thead>
+                  <thead>
+                    <tr>
+                      {head.map((c, j) => (
+                        <th key={j} style={{ textAlign: b.align[j] ?? "left" }}>
+                          {inline(c, `${key}-th${j}`)}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
                   <tbody>
                     {rows.map((r, j) => (
-                      <tr key={j}>{r.map((c, k) => <td key={k}>{inline(c, `td${i}-${j}-${k}`)}</td>)}</tr>
+                      <tr key={j}>
+                        {r.map((c, k) => (
+                          <td key={k} style={{ textAlign: b.align[k] ?? "left" }}>
+                            {inline(c, `${key}-td${j}-${k}`)}
+                          </td>
+                        ))}
+                      </tr>
                     ))}
                   </tbody>
                 </table>

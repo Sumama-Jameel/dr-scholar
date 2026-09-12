@@ -25,17 +25,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link href="/chat" className="rounded-lg px-3 py-1.5 text-[--text-secondary] transition-colors hover:bg-[--bg-surface-hover] hover:text-[--text-primary]">
                 Agent
               </Link>
-              <Link href="/skill" className="rounded-lg px-3 py-1.5 text-[--text-secondary] transition-colors hover:bg-[--bg-surface-hover] hover:text-[--text-primary]">
-                Skill file
-              </Link>
-              <a
-                href="/student-profile-template.md"
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-lg px-3 py-1.5 text-[--text-secondary] transition-colors hover:bg-[--bg-surface-hover] hover:text-[--text-primary]"
-              >
-                Template
-              </a>
             </nav>
           </div>
         </header>

@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background:
+    radial-gradient(1200px 500px at 80% -10%, rgba(99, 102, 241, 0.13), transparent 60%),
+    radial-gradient(900px 400px at 10% 0%, rgba(14, 165, 233, 0.1), transparent 60%),
+    #020617;
+  min-height: 100vh;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* thin pulsing bar shown while the agent streams */
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+.shimmer {
+  animation: shimmer 1.4s linear infinite;
+  background: linear-gradient(90deg, #1e293b 25%, #334155 37%, #1e293b 63%);
+  background-size: 400px 100%;
+}
+
+.md-body table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+.md-body th,
+.md-body td {
+  border: 1px solid #1e293b;
+  padding: 0.5rem 0.6rem;
+  text-align: left;
+  vertical-align: top;
+}
+.md-body th {
+  background: rgba(30, 41, 59, 0.6);
+  color: #e2e8f0;
+}
+.md-body tr:nth-child(even) td {
+  background: rgba(15, 23, 42, 0.5);
+}

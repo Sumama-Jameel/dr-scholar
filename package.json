@@ -1,0 +1,30 @@
+{
+  "name": "dr-scholar",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AI agent that finds scholarships & internships for students. Free-stack, Vercel-ready.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "postinstall": "node -e \"console.log('Dr Scholar: set GEMINI_API_KEY or GOOGLE_API_KEY in .env.local (free key: https://aistudio.google.com/apikey)')\""
+  },
+  "dependencies": {
+    "next": "^15.5.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "postcss": "^8.5.0",
+    "tailwindcss": "^4.1.0",
+    "typescript": "^5.6.0"
+  }
+}

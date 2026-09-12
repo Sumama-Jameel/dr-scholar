@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import MiniMarkdown from "@/components/MiniMarkdown";
 import ToolChip, { type ToolEvent } from "@/components/ToolChip";
 import {
-  profileCompleteness,
   profileToText,
   readProfileFromStorage,
   type ProfileInput,
@@ -199,7 +198,6 @@ export default function ChatPage() {
   }
 
   const hasProfile = Object.keys(profile).length > 0;
-  const completeness = useMemo(() => profileCompleteness(profile), [profile]);
 
   return (
     <div className="mx-auto flex h-[calc(100vh-10rem)] max-w-4xl flex-col">

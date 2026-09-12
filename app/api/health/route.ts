@@ -9,6 +9,7 @@ export async function GET() {
   return Response.json({
     ok: true,
     model: primary,
+    hasKey: Boolean(primary),
     backends,
     extras: {
       tavily: Boolean(process.env.TAVILY_API_KEY),

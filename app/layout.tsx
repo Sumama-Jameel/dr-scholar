@@ -29,9 +29,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </div>
         </header>
         <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
-        <footer className="mx-auto max-w-6xl px-4 pb-10 pt-4 text-xs text-[--text-muted]">
-          Dr Scholar · built on free tiers (Gemini free API + keyless search & job APIs) · the agent researches, you verify — always double-check deadlines on official pages before applying.
-        </footer>
       </body>
     </html>
   );

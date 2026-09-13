@@ -65,10 +65,10 @@ function sectionStatus(id: SectionId, p: ProfileInput): "complete" | "partial" |
 
 function StatusIndicator({ status }: { status: "complete" | "partial" | "empty" }) {
   if (status === "complete")
-    return <span className="text-[--accent-success] text-[10px]">✓</span>;
+    return <span className="text-[--accent-success] text-[11px]">✓</span>;
   if (status === "partial")
-    return <span className="h-1.5 w-1.5 rounded-full bg-[--accent-gold]" />;
-  return <span className="h-1.5 w-1.5 rounded-full bg-[--border-strong]" />;
+    return <span className="h-2 w-2 rounded-full bg-[--accent-gold]" />;
+  return <span className="h-2 w-2 rounded-full bg-[--border-strong]" />;
 }
 
 export default function ProfilePage() {
@@ -237,13 +237,13 @@ export default function ProfilePage() {
   const requiredFieldsMet = missingRequired.length === 0;
 
   return (
-    <div className="flex min-h-[calc(100vh-3rem)]">
+    <div className="flex min-h-[calc(100vh-3.5rem)]">
       {/* Sidebar */}
-      <aside className="w-64 shrink-0 border-r border-[--border] bg-[--bg-content]">
-        <div className="sticky top-12 flex h-[calc(100vh-3rem)] flex-col">
+      <aside className="w-64 shrink-0 border-r-2 border-[--border-strong] bg-[--bg-content]">
+        <div className="sticky top-14 flex h-[calc(100vh-3.5rem)] flex-col">
           {/* Section nav */}
           <nav className="flex-1 overflow-y-auto p-4">
-            <div className="mb-4 text-[8px] uppercase tracking-widest text-[--text-muted]" style={{ fontFamily: "var(--font-display)" }}>
+            <div className="mb-4 text-[9px] uppercase tracking-widest text-[--text-muted]" style={{ fontFamily: "var(--font-display)" }}>
               Sections
             </div>
             <div className="space-y-1">
@@ -261,12 +261,12 @@ export default function ProfilePage() {
                     }`}
                   >
                     <span
-                      className={`text-[8px] font-bold ${isActive ? "text-[--accent-primary]" : "text-[--text-muted]"}`}
+                      className={`text-[10px] font-bold ${isActive ? "text-[--accent-primary]" : "text-[--text-muted]"}`}
                       style={{ fontFamily: "var(--font-display)" }}
                     >
                       {sec.num}
                     </span>
-                    <span className={`flex-1 text-[12px] ${isActive ? "font-semibold text-[--text-primary]" : "text-[--text-secondary]"}`}>
+                    <span className={`flex-1 text-[13px] ${isActive ? "font-semibold text-[--text-primary]" : "text-[--text-secondary]"}`}>
                       {sec.label}
                     </span>
                     <StatusIndicator status={status} />
@@ -277,17 +277,13 @@ export default function ProfilePage() {
           </nav>
 
           {/* Sidebar footer */}
-          <div className="border-t border-[--border] p-4">
-            <div className="mb-3 flex gap-1">
+          <div className="border-t-2 border-[--border-strong] p-4">
+            <div className="mb-3 flex gap-2">
               {(["form", "doc"] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => setTab(t)}
-                  className={`flex-1 rounded px-2 py-1.5 text-[10px] font-medium transition-colors ${
-                    tab === t
-                      ? "bg-[--accent-primary] text-white"
-                      : "bg-[--bg-surface] text-[--text-muted] hover:text-[--text-primary]"
-                  }`}
+                  className={`btn flex-1 ${tab === t ? "btn-primary" : ""}`}
                 >
                   {t === "form" ? "Form" : "Upload"}
                 </button>
@@ -296,7 +292,7 @@ export default function ProfilePage() {
             <a
               href="/student-profile-template.md"
               download
-              className="block text-center text-[10px] text-[--text-muted] underline decoration-[--border] underline-offset-2 hover:text-[--accent-primary] hover:decoration-[--accent-primary]"
+              className="btn w-full text-center"
             >
               Download template
             </a>
@@ -309,18 +305,18 @@ export default function ProfilePage() {
         <div className="mx-auto max-w-2xl px-8 py-10">
           {/* Header */}
           <div className="mb-10">
-            <h1 className="text-[11px] font-bold tracking-wide text-[--text-primary]" style={{ fontFamily: "var(--font-display)" }}>
+            <h1 className="text-[13px] font-bold tracking-wide text-[--text-primary]" style={{ fontFamily: "var(--font-display)" }}>
               Build your student profile
             </h1>
-            <p className="mt-3 text-[13px] leading-relaxed text-[--text-secondary]">
+            <p className="mt-3 text-[14px] leading-relaxed text-[--text-secondary]">
               Everything stays in your browser. The agent uses it to personalize research — fill what you can, it asks for anything critical that&apos;s missing.
             </p>
           </div>
 
           {tab === "doc" ? (
             /* Document upload */
-            <div className="rounded border border-[--border] bg-[--bg-content] p-6">
-              <div className="mb-5 text-[9px] uppercase tracking-widest text-[--text-muted]" style={{ fontFamily: "var(--font-display)" }}>
+            <div className="border-2 border-[--border-strong] bg-[--bg-content] p-6">
+              <div className="mb-5 text-[10px] uppercase tracking-widest text-[--text-muted]" style={{ fontFamily: "var(--font-display)" }}>
                 How it works
               </div>
               <ol className="mb-5 list-decimal space-y-2 pl-5 text-[13px] text-[--text-secondary]">
@@ -332,7 +328,8 @@ export default function ProfilePage() {
                 type="file"
                 accept=".pdf,.md,.txt,.json,.csv"
                 onChange={onFile}
-                className="mb-4 block w-full text-[13px] text-[--text-muted] file:mr-3 file:rounded file:border file:border-[--border] file:bg-[--bg-content] file:px-4 file:py-2 file:text-[12px] file:font-medium file:text-[--text-primary] hover:file:bg-[--bg-surface]"
+                className="mb-4 block w-full text-[13px] text-[--text-muted] file:mr-3 file:rounded-none file:border-2 file:border-[--border-strong] file:bg-[--bg-content] file:px-4 file:py-2 file:text-[11px] file:font-bold file:text-[--text-primary] file:transition-colors file:hover:border-[--accent-primary] file:hover:text-[--accent-primary]"
+                style={{ fontFamily: "var(--font-display)" }}
               />
               <textarea
                 value={docText}
@@ -345,7 +342,7 @@ export default function ProfilePage() {
                 <button
                   onClick={parseDoc}
                   disabled={parsing || docText.trim().length < 20}
-                  className="rounded bg-[--accent-primary] px-5 py-2 text-[12px] font-semibold text-white transition-colors hover:bg-[--accent-primary-hover] disabled:opacity-30"
+                  className="btn btn-primary"
                 >
                   {parsing ? "Parsing…" : "Parse with AI"}
                 </button>
@@ -365,13 +362,13 @@ export default function ProfilePage() {
                   <div key={sec.id}>
                     <div className="mb-6 flex items-center gap-3">
                       <span
-                        className="text-[10px] font-bold text-[--accent-primary]"
+                        className="text-[11px] font-bold text-[--accent-primary]"
                         style={{ fontFamily: "var(--font-display)" }}
                       >
                         {sec.num}
                       </span>
                       <h2
-                        className="text-[10px] font-bold uppercase tracking-widest text-[--text-primary]"
+                        className="text-[12px] font-bold uppercase tracking-widest text-[--text-primary]"
                         style={{ fontFamily: "var(--font-display)" }}
                       >
                         {sec.label}
@@ -533,7 +530,7 @@ export default function ProfilePage() {
           )}
 
           {/* Save button */}
-          <div className="sticky bottom-0 mt-12 border-t border-[--border] bg-[--bg-base] pt-5 pb-5">
+          <div className="sticky bottom-0 mt-12 border-t-2 border-[--border-strong] bg-[--bg-base] pt-5 pb-5" style={{ background: "rgba(250, 250, 249, 0.95)" }}>
             <div className="flex items-center justify-between">
               {!requiredFieldsMet ? (
                 <span className="text-[11px] text-[--text-muted]">
@@ -543,8 +540,7 @@ export default function ProfilePage() {
               <button
                 onClick={save}
                 disabled={!requiredFieldsMet}
-                className="rounded bg-[--accent-primary] px-6 py-2.5 text-[10px] font-bold text-white transition-colors hover:bg-[--accent-primary-hover] disabled:opacity-30 disabled:cursor-not-allowed"
-                style={{ fontFamily: "var(--font-display)" }}
+                className="btn btn-primary btn-lg"
               >
                 Save & meet your agent →
               </button>

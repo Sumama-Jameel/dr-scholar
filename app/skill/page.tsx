@@ -16,16 +16,16 @@ export default function SkillPage() {
   return (
     <div className="mx-auto max-w-4xl px-8 py-10">
       <div className="mb-8">
-        <div className="mb-3 text-[8px] uppercase tracking-widest text-[--text-muted]" style={{ fontFamily: "var(--font-display)" }}>
+        <div className="mb-3 text-[9px] uppercase tracking-widest text-[--text-muted]" style={{ fontFamily: "var(--font-display)" }}>
           System
         </div>
         <h1
-          className="text-[11px] font-bold tracking-wide text-[--text-primary]"
+          className="text-[13px] font-bold tracking-wide text-[--text-primary]"
           style={{ fontFamily: "var(--font-display)" }}
         >
           Agent Skill File
         </h1>
-        <p className="mt-3 text-[13px] leading-relaxed text-[--text-secondary]">
+        <p className="mt-3 text-[14px] leading-relaxed text-[--text-secondary]">
           This is{" "}
           <code className="rounded border border-[--border] bg-[--bg-surface] px-1.5 py-0.5 text-[11px]" style={{ fontFamily: "var(--font-mono)" }}>
             skills/dr-scholar/SKILL.md
@@ -38,7 +38,7 @@ export default function SkillPage() {
         <div className="border border-[--accent-danger]/20 bg-[--accent-danger]/5 p-3 text-[12px] text-[--accent-danger]">{error}</div>
       ) : null}
 
-      <div className="overflow-hidden border border-[--border] bg-[--bg-content]">
+      <div className="overflow-hidden border-2 border-[--border-strong] bg-[--bg-content]">
         <div className="flex items-center justify-between border-b border-[--border] px-4 py-2.5">
           <div className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-[--accent-danger]/50" />

@@ -190,20 +190,20 @@ export default function ChatPage() {
     <div className="mx-auto flex h-[calc(100vh-3rem)] max-w-3xl flex-col">
       {/* Alerts */}
       {health && !health.hasKey ? (
-        <div className="mb-2 border border-[--accent-danger]/20 bg-[--accent-danger]/5 px-4 py-2.5 text-[12px] text-[--accent-danger]">
+        <div className="mb-3 border-2 border-[--accent-danger]/30 bg-[--accent-danger]/5 px-4 py-3 text-[12px] text-[--accent-danger]">
           No LLM API keys found — set GROQ_API_KEY or GOOGLE_API_KEY in Vercel.
         </div>
       ) : null}
       {health?.hasKey && health.llmOk === false ? (
-        <div className="mb-2 border border-[--accent-gold]/20 bg-[--accent-gold]/5 px-4 py-2.5 text-[12px] text-[--accent-gold]">
+        <div className="mb-3 border-2 border-[--accent-gold]/30 bg-[--accent-gold]/5 px-4 py-3 text-[12px] text-[--accent-gold]">
           API keys set but LLM backends not responding. Check keys are valid.
         </div>
       ) : null}
 
       {/* Status bar */}
       {health?.llmOk ? (
-        <div className="mb-2 flex items-center gap-2 px-1 text-[10px] text-[--text-muted]">
-          <span className="h-1.5 w-1.5 rounded-full bg-[--accent-success]" />
+        <div className="mb-3 flex items-center gap-2 px-1 text-[11px] text-[--text-muted]">
+          <span className="h-2 w-2 rounded-full bg-[--accent-success]" />
           Ready
           {health.extras.tavily ? <span>· Tavily</span> : null}
         </div>
@@ -211,19 +211,19 @@ export default function ChatPage() {
 
       {/* Profile bar */}
       {!hasProfile ? (
-        <div className="mb-2 border border-[--border] bg-[--bg-content] px-4 py-2.5 text-[12px] text-[--text-secondary]">
+        <div className="mb-3 border-2 border-[--border-strong] bg-[--bg-content] px-4 py-3 text-[12px] text-[--text-secondary]">
           No profile yet — the agent will ask you, or{" "}
           <Link href="/" className="font-medium text-[--accent-primary] underline decoration-[--accent-primary]/30 underline-offset-2 hover:decoration-[--accent-primary]">
             build your profile first
           </Link>
         </div>
       ) : (
-        <div className="mb-2 flex items-center justify-between border border-[--border] bg-[--bg-content] px-4 py-2 text-[11px] text-[--text-muted]">
+        <div className="mb-3 flex items-center justify-between border-2 border-[--border-strong] bg-[--bg-content] px-4 py-2.5 text-[12px] text-[--text-muted]">
           <span>
             <strong className="text-[--text-primary]">{profile.fullName || "You"}</strong> · {(profile.level ?? "level?").replace(/_/g, " ")} ·{" "}
             {profile.field ?? "field?"}{profile.citizenship ? ` · ${profile.citizenship}` : ""}
           </span>
-          <Link href="/" className="text-[--accent-primary] underline decoration-[--accent-primary]/30 underline-offset-2 hover:decoration-[--accent-primary]">
+          <Link href="/" className="btn btn-sm">
             edit
           </Link>
         </div>
@@ -233,29 +233,29 @@ export default function ChatPage() {
       <div className="flex-1 overflow-y-auto py-4">
         {msgs.length === 0 ? (
           <div className="py-16 text-center">
-            <div className="mx-auto mb-5 flex h-10 w-10 items-center justify-center rounded bg-[--accent-primary] text-[8px] font-bold text-white" style={{ fontFamily: "var(--font-display)" }}>
+            <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded bg-[--accent-primary] text-[11px] font-bold text-white" style={{ fontFamily: "var(--font-display)" }}>
               DS
             </div>
             <h2
-              className="text-[11px] font-bold tracking-wide text-[--text-primary]"
+              className="text-[13px] font-bold tracking-wide text-[--text-primary]"
               style={{ fontFamily: "var(--font-display)" }}
             >
               Dr Scholar
             </h2>
-            <p className="mx-auto mt-3 max-w-sm text-[13px] leading-relaxed text-[--text-secondary]">
+            <p className="mx-auto mt-3 max-w-sm text-[14px] leading-relaxed text-[--text-secondary]">
               I deep-research real scholarships &amp; internships matched to your profile, verify deadlines on official pages, and hand you an apply-plan.
             </p>
-            <div className="mx-auto mt-8 grid max-w-md grid-cols-2 gap-2">
+            <div className="mx-auto mt-8 grid max-w-md grid-cols-2 gap-3">
               {SUGGESTIONS.map((s) => (
                 <button
                   key={s.label}
                   onClick={() => send(s.label === "Ask me first" ? s.desc : `Do a full ${s.label.toLowerCase()} for me`)}
-                  className="border border-[--border] bg-[--bg-content] p-4 text-left transition-colors hover:border-[--accent-primary]/30 hover:bg-[--bg-surface]"
+                  className="border-2 border-[--border-strong] bg-[--bg-content] p-5 text-left transition-colors hover:border-[--accent-primary] hover:bg-[--bg-surface]"
                 >
                   <p className="text-[11px] font-bold text-[--text-primary]" style={{ fontFamily: "var(--font-display)" }}>
                     {s.label}
                   </p>
-                  <p className="mt-1.5 text-[11px] leading-relaxed text-[--text-muted]">{s.desc}</p>
+                  <p className="mt-2 text-[12px] leading-relaxed text-[--text-muted]">{s.desc}</p>
                 </button>
               ))}
             </div>
@@ -300,7 +300,7 @@ export default function ChatPage() {
       ) : null}
 
       {/* Input */}
-      <div className="flex items-end gap-2 border-t border-[--border] pt-3">
+      <div className="flex items-end gap-2 border-t-2 border-[--border-strong] pt-3">
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -313,21 +313,17 @@ export default function ChatPage() {
           placeholder="Ask anything…"
           rows={2}
           disabled={busy}
-          className="flex-1 resize-none rounded border border-[--border] bg-[--bg-content] px-3 py-2.5 text-[13px] text-[--text-primary] placeholder-[--text-muted] outline-none transition-colors focus:border-[--accent-primary] focus:ring-1 focus:ring-[--accent-primary]/10 disabled:opacity-50"
+          className="flex-1 resize-none rounded border-2 border-[--border-strong] bg-[--bg-content] px-3 py-2.5 text-[13px] text-[--text-primary] placeholder-[--text-muted] outline-none transition-colors focus:border-[--accent-primary] focus:ring-1 focus:ring-[--accent-primary]/10 disabled:opacity-50"
         />
         {busy ? (
-          <button
-            onClick={stop}
-            className="border border-[--border] bg-[--bg-content] px-4 py-2.5 text-[12px] font-medium text-[--text-primary] transition-colors hover:bg-[--bg-surface]"
-          >
+          <button onClick={stop} className="btn">
             Stop
           </button>
         ) : (
           <button
             onClick={() => send(input)}
             disabled={!input.trim()}
-            className="rounded bg-[--accent-primary] px-4 py-2.5 text-[11px] font-bold text-white transition-colors hover:bg-[--accent-primary-hover] disabled:opacity-30"
-            style={{ fontFamily: "var(--font-display)" }}
+            className="btn btn-primary"
           >
             Send
           </button>
@@ -335,12 +331,12 @@ export default function ChatPage() {
       </div>
 
       {/* Footer */}
-      <div className="mt-2 flex items-center justify-between text-[10px] text-[--text-muted]">
+      <div className="mt-3 flex items-center justify-between text-[11px] text-[--text-muted]">
         <span>Enter to send · Shift+Enter for newline</span>
         <button
           onClick={downloadReport}
           disabled={!msgs.some((m) => m.role === "assistant" && m.text.trim())}
-          className="underline decoration-[--border] underline-offset-2 hover:text-[--accent-primary] hover:decoration-[--accent-primary] disabled:opacity-30 disabled:no-underline"
+          className="btn btn-sm"
         >
           Download report (.md)
         </button>

@@ -48,10 +48,10 @@ export default function ToolChip({ ev }: { ev: ToolEvent }) {
   const line = ev.summary ?? pendingSummary(ev);
 
   return (
-    <div className="border border-[--border] bg-[--bg-content] px-3 py-2 text-[11px]">
+    <div className="border-2 border-[--border-strong] bg-[--bg-content] px-3 py-2 text-[12px]">
       <div className="flex items-center gap-2.5">
         <span
-          className={`text-[8px] font-bold ${running ? "text-[--accent-primary]" : "text-[--text-muted]"}`}
+          className={`text-[9px] font-bold ${running ? "text-[--accent-primary]" : "text-[--text-muted]"}`}
           style={{ fontFamily: "var(--font-display)" }}
         >
           {toolNum()}

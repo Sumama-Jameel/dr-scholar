@@ -260,15 +260,15 @@ export default function ChatPage() {
         </div>
 
         {busy ? (() => {
-          // Find the last assistant message
           const lastAssistant = [...msgs].reverse().find((m) => m.role === "assistant");
           const hasRunningTool = lastAssistant?.tools.some((t) => t.status === "running") ?? false;
-          // Don't show "Thinking..." if a tool is already showing its own status
+          // A running tool chip already shows its own status
           if (hasRunningTool) return null;
+          const hasWork = (lastAssistant?.tools.length ?? 0) > 0 || (lastAssistant?.text.trim().length ?? 0) > 0;
           return (
             <div className="mt-4 flex items-center gap-2 text-[12px] text-(--text-muted)">
               <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-(--accent-primary)" />
-              <span>Thinking…</span>
+              <span>{hasWork ? "Writing your report…" : "Thinking…"}</span>
             </div>
           );
         })() : null}

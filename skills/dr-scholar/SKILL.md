@@ -111,8 +111,7 @@ you gathered from fetch_page). Use verdicts: `likely` / `possible` / `stretch`. 
 ### Phase 6 — Offer 3 next actions (e.g. "draft an eligibility email", "compare two picks",
 "re-scan with different target countries").
 
-**Minimum effort rule:** a complete answer needs at least `deep_research` + `fetch_page`
-(2+ pages) + `eligibility_check`. If you only did one tool call, you are not done — keep going.
+**Completion rule:** `deep_research` already deep-reads the top pages and extracts deadlines + funding for you. After it returns solid matches, run AT MOST ONE verification round (1–2 `fetch_page` calls + 1 `eligibility_check`), then IMMEDIATELY write the Phase-5 report below. **Total tool rounds per reply: max 2.** Do not keep searching once you have what you need — the system strips your tools after two rounds and forces you to write the report.
 
 ## 5 · Ranking logic (when you select the final list)
 

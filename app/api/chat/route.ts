@@ -270,25 +270,33 @@ export async function POST(req: Request) {
       });
       try {
         send({ t: "meta", model: primary });
-        const MAX_STEPS = 4; // research → verify/screen → synthesize (bounded)
-        const SYNTHESIS_RESERVE_MS = 75_000; // always leave room for the final report
+        const MAX_STEPS = 6;
+        const PER_TURN_TIMEOUT_MS = 90_000; // no single LLM turn may eat the whole budget
+        const MAX_TOOL_ROUNDS = 2; // research → verify/screen → force synthesis
         const hardDeadline = Date.now() + 270_000; // stay under the 300s function cap
 
         const toolLog: { name: string; ok: boolean; args: Record<string, unknown>; result: unknown }[] = [];
+        let toolRounds = 0;
         let reportSent = false;
 
         for (let step = 0; step < MAX_STEPS && Date.now() < hardDeadline; step++) {
-          // Once research has findings, stop tool rounds with <75s left so the
-          // model always has budget to write the actual report.
-          if (toolLog.length > 0 && Date.now() > hardDeadline - SYNTHESIS_RESERVE_MS) {
-            console.warn(`[chat] step ${step}: ${Math.round((hardDeadline - Date.now()) / 1000)}s left — forcing synthesis`);
-            break;
-          }
+          // After the tool rounds run out — or once research exists and time is
+          // running low — REMOVE the tools entirely so the model physically
+          // cannot keep searching and must write the report instead.
+          const toolsForTurn =
+            toolRounds >= MAX_TOOL_ROUNDS ||
+            (toolLog.length > 0 && Date.now() > hardDeadline - 45_000)
+              ? undefined
+              : toolSpecs;
           let turn;
           try {
-            turn = await streamTurn(messages, toolSpecs, (ev: StreamEvent) => {
-              if (ev.type === "text") send({ t: "delta", v: ev.text });
-            }, { temperature: 0.4, maxTokens: 8192 });
+            turn = await withTimeout(
+              streamTurn(messages, toolsForTurn, (ev: StreamEvent) => {
+                if (ev.type === "text") send({ t: "delta", v: ev.text });
+              }, { temperature: 0.4, maxTokens: 4096 }),
+              PER_TURN_TIMEOUT_MS,
+              `streamTurn step ${step}`
+            );
           } catch (e: unknown) {
             const err = e as Error;
             if (err.message !== "aborted" && !req.signal.aborted) {
@@ -313,6 +321,7 @@ export async function POST(req: Request) {
             break;
           }
 
+          toolRounds++;
           const toolResults: { role: "tool"; tool: { name: string; arguments: string }; content: string }[] = [];
           // Run every tool in this step CONCURRENTLY — two deep_research sweeps
           // drop from ~220s to ~110s wall time. Results emit in original order.
@@ -365,6 +374,28 @@ export async function POST(req: Request) {
           // Re-feed tool results to the model (Groq-style format)
           for (const tr of toolResults) {
             messages.push({ role: "user", text: `[tool result for ${tr.tool.name}]: ${tr.content}` });
+          }
+          messages.push({
+            role: "user",
+            text:
+              "[research-progress]: All the research data you need is above. If you have 3+ solid matches per category, STOP — do not call more tools — and write the final Phase-5 report now, in the exact skill format.",
+          });
+        }
+
+        // Last resort: if the loop ended without a report, try ONE final synthesis
+        // pass with tools disabled (only while real time remains).
+        if (toolLog.length > 0 && !reportSent && Date.now() < hardDeadline - 10_000) {
+          try {
+            const finalTurn = await withTimeout(
+              streamTurn(messages, undefined, (ev: StreamEvent) => {
+                if (ev.type === "text") send({ t: "delta", v: ev.text });
+              }, { temperature: 0.4, maxTokens: 4096 }),
+              Math.min(60_000, Math.max(10_000, hardDeadline - Date.now() - 5_000)),
+              "final synthesis"
+            );
+            if (finalTurn.text.trim()) reportSent = true;
+          } catch (e: unknown) {
+            console.warn("[chat] final synthesis failed:", (e as Error).message);
           }
         }
 

@@ -7,9 +7,9 @@
  *   3. Fallback: Google Gemini 2.5 Flash                 (same key, different model)
  *
  * Reliability:
- *   - Per-provider retry on 429/rate-limit (2 attempts, 2s backoff)
+ *   - Per-provider retry on 429/rate-limit (single retry, 3s backoff)
  *   - Per-fetch timeout (45s) to prevent hanging
- *   - Global retry: if all providers fail, wait 3s and try the full cascade again
+ *   - One cascade re-try if all providers fail (3s wait), then a clear error
  */
 
 import { extractTitle } from "./html";
@@ -131,13 +131,13 @@ function normalizeSchema(obj: unknown): unknown {
   return out;
 }
 
-/** Try a provider call with exponential backoff on rate-limit (5s, 10s, 20s — 3 retries).
+/** Try a provider call with a single fast retry on rate-limit (3s backoff).
  *  `stopRetrying` lets callers abandon retries once content has already been streamed
  *  to the client (re-streaming would duplicate the partial answer on screen). */
 async function withRetry<T>(
   fn: () => Promise<T>,
   label: string,
-  maxRetries = 3,
+  maxRetries = 1,
   stopRetrying?: () => boolean
 ): Promise<T> {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -145,9 +145,8 @@ async function withRetry<T>(
       return await fn();
     } catch (err: unknown) {
       if (isRateLimit(err) && attempt < maxRetries && !stopRetrying?.()) {
-        const delay = 5000 * Math.pow(2, attempt);
-        console.warn(`[llm] ${label} rate-limited (attempt ${attempt + 1}), retrying in ${delay / 1000}s…`);
-        await sleep(delay);
+        console.warn(`[llm] ${label} rate-limited, retrying once in 3s…`);
+        await sleep(3_000);
       } else {
         throw err;
       }
@@ -197,8 +196,8 @@ export async function streamTurn(
   // Try the full cascade up to 2 times (global retry for transient failures)
   for (let attempt = 0; attempt < 2; attempt++) {
     if (attempt > 0) {
-      console.warn("[llm] all providers failed, retrying entire cascade in 15s…");
-      await sleep(15_000);
+      console.warn("[llm] all providers failed, retrying entire cascade once in 3s…");
+      await sleep(3_000);
     }
 
     // try groq first (Qwen primary)
@@ -207,7 +206,7 @@ export async function streamTurn(
         return await withRetry(
           () => groqStream(messages, tools, { temperature, maxTokens }, guardedOnEvent),
           "groq",
-          3,
+          1,
           stopRetrying
         );
       } catch (e: unknown) {
@@ -226,7 +225,7 @@ export async function streamTurn(
         return await withRetry(
           () => geminiStream(model, messages, tools, { temperature, maxTokens }, guardedOnEvent),
           `gemini:${model}`,
-          3,
+          1,
           stopRetrying
         );
       } catch (e: unknown) {
@@ -415,12 +414,21 @@ async function geminiStream(
 
   const sysIdx = messages.findIndex((m) => m.role === "system");
   const system = sysIdx >= 0 ? messages[sysIdx].text : undefined;
-  const contents = messages
-    .filter((m) => m.role !== "system")
-    .map((m) => ({
-      role: m.role === "assistant" ? "model" : "user",
-      parts: [{ text: m.text }],
-    }));
+  // Gemini REJECTS consecutive messages with the same role (400 "user role
+  // cannot follow user role"). Tool results are re-fed as back-to-back user
+  // turns, so without collapsing adjacency every fallback call after the first
+  // tool round would fail. Merge same-role neighbors into one message instead.
+  const contents: { role: string; parts: { text: string }[] }[] = [];
+  for (const m of messages) {
+    if (m.role === "system") continue;
+    const role = m.role === "assistant" ? "model" : "user";
+    const last = contents[contents.length - 1];
+    if (last && last.role === role) {
+      last.parts.push({ text: m.text });
+    } else {
+      contents.push({ role, parts: [{ text: m.text }] });
+    }
+  }
 
   const generationConfig: Record<string, unknown> = {
     temperature: opts.temperature,

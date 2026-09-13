@@ -22,15 +22,15 @@ const LEVELS: { value: string; label: string }[] = [
 ];
 
 const inputCls =
-  "w-full rounded border border-[--border] bg-[--bg-content] px-3 py-2 text-[13px] text-[--text-primary] placeholder-[--text-muted] outline-none transition-colors focus:border-[--accent-primary] focus:ring-1 focus:ring-[--accent-primary]/10";
+  "w-full rounded border border-(--border) bg-(--bg-content) px-3 py-2 text-[13px] text-(--text-primary) placeholder-(--text-muted) outline-none transition-colors focus:border-(--accent-primary) focus:ring-1 focus:ring-(--accent-primary)/10";
 
 function FieldLabel({ children, hint, required }: { children: React.ReactNode; hint?: string; required?: boolean }) {
   return (
     <span className="mb-1.5 flex items-baseline gap-2">
-      <span className="text-[11px] font-semibold uppercase tracking-wider text-[--text-muted]">
-        {children}{required ? <span className="text-[--accent-primary] ml-0.5">*</span> : null}
+      <span className="text-[11px] font-semibold uppercase tracking-wider text-(--text-muted)">
+        {children}{required ? <span className="text-(--accent-primary) ml-0.5">*</span> : null}
       </span>
-      {hint ? <span className="text-[10px] normal-case tracking-normal text-[--text-muted]/70">{hint}</span> : null}
+      {hint ? <span className="text-[10px] normal-case tracking-normal text-(--text-muted)/70">{hint}</span> : null}
     </span>
   );
 }
@@ -65,10 +65,10 @@ function sectionStatus(id: SectionId, p: ProfileInput): "complete" | "partial" |
 
 function StatusIndicator({ status }: { status: "complete" | "partial" | "empty" }) {
   if (status === "complete")
-    return <span className="text-[--accent-success] text-[11px]">✓</span>;
+    return <span className="text-(--accent-success) text-[11px]">✓</span>;
   if (status === "partial")
-    return <span className="h-2 w-2 rounded-full bg-[--accent-gold]" />;
-  return <span className="h-2 w-2 rounded-full bg-[--border-strong]" />;
+    return <span className="h-2 w-2 rounded-full bg-(--accent-gold)" />;
+  return <span className="h-2 w-2 rounded-full bg-(--border-strong)" />;
 }
 
 export default function ProfilePage() {
@@ -239,11 +239,11 @@ export default function ProfilePage() {
   return (
     <div className="flex min-h-[calc(100vh-3.5rem)]">
       {/* Sidebar */}
-      <aside className="w-64 shrink-0 border-r-2 border-[--border-strong] bg-[--bg-content]">
+      <aside className="w-64 shrink-0 border-r-2 border-(--border-strong) bg-(--bg-content)">
         <div className="sticky top-14 flex h-[calc(100vh-3.5rem)] flex-col">
           {/* Section nav */}
           <nav className="flex-1 overflow-y-auto p-4">
-            <div className="mb-4 text-[9px] uppercase tracking-widest text-[--text-muted]" style={{ fontFamily: "var(--font-display)" }}>
+            <div className="mb-4 text-[9px] uppercase tracking-widest text-(--text-muted)" style={{ fontFamily: "var(--font-display)" }}>
               Sections
             </div>
             <div className="space-y-1">
@@ -256,17 +256,17 @@ export default function ProfilePage() {
                     onClick={() => { setTab("form"); setOpenSection(sec.id); }}
                     className={`flex w-full items-center gap-3 rounded-r px-3 py-2.5 text-left transition-all ${
                       isActive
-                        ? "border-l-[3px] border-l-[--accent-primary] bg-[--accent-primary-light] pl-[9px]"
-                        : "border-l-[3px] border-l-transparent hover:bg-[--bg-surface]"
+                        ? "border-l-[3px] border-l-(--accent-primary) bg-(--accent-primary-light) pl-[9px]"
+                        : "border-l-[3px] border-l-transparent hover:bg-(--bg-surface)"
                     }`}
                   >
                     <span
-                      className={`text-[10px] font-bold ${isActive ? "text-[--accent-primary]" : "text-[--text-muted]"}`}
+                      className={`text-[10px] font-bold ${isActive ? "text-(--accent-primary)" : "text-(--text-muted)"}`}
                       style={{ fontFamily: "var(--font-display)" }}
                     >
                       {sec.num}
                     </span>
-                    <span className={`flex-1 text-[13px] ${isActive ? "font-semibold text-[--text-primary]" : "text-[--text-secondary]"}`}>
+                    <span className={`flex-1 text-[13px] ${isActive ? "font-semibold text-(--text-primary)" : "text-(--text-secondary)"}`}>
                       {sec.label}
                     </span>
                     <StatusIndicator status={status} />
@@ -277,7 +277,7 @@ export default function ProfilePage() {
           </nav>
 
           {/* Sidebar footer */}
-          <div className="border-t-2 border-[--border-strong] p-4">
+          <div className="border-t-2 border-(--border-strong) p-4">
             <div className="mb-3 flex gap-2">
               {(["form", "doc"] as const).map((t) => (
                 <button
@@ -305,21 +305,21 @@ export default function ProfilePage() {
         <div className="mx-auto max-w-2xl px-8 py-10">
           {/* Header */}
           <div className="mb-10">
-            <h1 className="text-[13px] font-bold tracking-wide text-[--text-primary]" style={{ fontFamily: "var(--font-display)" }}>
+            <h1 className="text-[13px] font-bold tracking-wide text-(--text-primary)" style={{ fontFamily: "var(--font-display)" }}>
               Build your student profile
             </h1>
-            <p className="mt-3 text-[14px] leading-relaxed text-[--text-secondary]">
+            <p className="mt-3 text-[14px] leading-relaxed text-(--text-secondary)">
               Everything stays in your browser. The agent uses it to personalize research — fill what you can, it asks for anything critical that&apos;s missing.
             </p>
           </div>
 
           {tab === "doc" ? (
             /* Document upload */
-            <div className="border-2 border-[--border-strong] bg-[--bg-content] p-6">
-              <div className="mb-5 text-[10px] uppercase tracking-widest text-[--text-muted]" style={{ fontFamily: "var(--font-display)" }}>
+            <div className="border-2 border-(--border-strong) bg-(--bg-content) p-6">
+              <div className="mb-5 text-[10px] uppercase tracking-widest text-(--text-muted)" style={{ fontFamily: "var(--font-display)" }}>
                 How it works
               </div>
-              <ol className="mb-5 list-decimal space-y-2 pl-5 text-[13px] text-[--text-secondary]">
+              <ol className="mb-5 list-decimal space-y-2 pl-5 text-[13px] text-(--text-secondary)">
                 <li>Download the template above (or use any CV/notes file).</li>
                 <li>Fill it in with your details (.md / .txt / .pdf / any plain text).</li>
                 <li>Upload it here or paste the text — the AI extracts your profile.</li>
@@ -328,7 +328,7 @@ export default function ProfilePage() {
                 type="file"
                 accept=".pdf,.md,.txt,.json,.csv"
                 onChange={onFile}
-                className="mb-4 block w-full text-[13px] text-[--text-muted] file:mr-3 file:rounded-none file:border-2 file:border-[--border-strong] file:bg-[--bg-content] file:px-4 file:py-2 file:text-[11px] file:font-bold file:text-[--text-primary] file:transition-colors file:hover:border-[--accent-primary] file:hover:text-[--accent-primary]"
+                className="mb-4 block w-full text-[13px] text-(--text-muted) file:mr-3 file:rounded-none file:border-2 file:border-(--border-strong) file:bg-(--bg-content) file:px-4 file:py-2 file:text-[11px] file:font-bold file:text-(--text-primary) file:transition-colors file:hover:border-(--accent-primary) file:hover:text-(--accent-primary)"
                 style={{ fontFamily: "var(--font-display)" }}
               />
               <textarea
@@ -347,7 +347,7 @@ export default function ProfilePage() {
                   {parsing ? "Parsing…" : "Parse with AI"}
                 </button>
                 {parseMsg ? (
-                  <span className={`text-[12px] ${parseMsg.ok ? "text-[--accent-success]" : "text-[--accent-danger]"}`}>
+                  <span className={`text-[12px] ${parseMsg.ok ? "text-(--accent-success)" : "text-(--accent-danger)"}`}>
                     {parseMsg.text}
                   </span>
                 ) : null}
@@ -362,13 +362,13 @@ export default function ProfilePage() {
                   <div key={sec.id}>
                     <div className="mb-6 flex items-center gap-3">
                       <span
-                        className="text-[11px] font-bold text-[--accent-primary]"
+                        className="text-[11px] font-bold text-(--accent-primary)"
                         style={{ fontFamily: "var(--font-display)" }}
                       >
                         {sec.num}
                       </span>
                       <h2
-                        className="text-[12px] font-bold uppercase tracking-widest text-[--text-primary]"
+                        className="text-[12px] font-bold uppercase tracking-widest text-(--text-primary)"
                         style={{ fontFamily: "var(--font-display)" }}
                       >
                         {sec.label}
@@ -456,21 +456,21 @@ export default function ProfilePage() {
                           <input className={inputCls} value={draftFor("links")} onChange={(e) => setDrafts({ ...drafts, links: e.target.value })} placeholder="github.com/you, linkedin.com/in/you" />
                         </label>
                         <div className="flex gap-6 md:col-span-2">
-                          <label className="flex items-center gap-2.5 text-[12px] text-[--text-secondary]">
+                          <label className="flex items-center gap-2.5 text-[12px] text-(--text-secondary)">
                             <input
                               type="checkbox"
                               checked={Boolean(p.needsFullFunding)}
                               onChange={(e) => set("needsFullFunding", e.target.checked)}
-                              className="h-3.5 w-3.5 rounded border-[--border] accent-[--accent-primary]"
+                              className="h-3.5 w-3.5 rounded border-(--border) accent-(--accent-primary)"
                             />
-                            I need fully-funded options only <span className="text-[--accent-primary]">*</span>
+                            I need fully-funded options only <span className="text-(--accent-primary)">*</span>
                           </label>
-                          <label className="flex items-center gap-2.5 text-[12px] text-[--text-secondary]">
+                          <label className="flex items-center gap-2.5 text-[12px] text-(--text-secondary)">
                             <input
                               type="checkbox"
                               checked={Boolean(p.remoteOnly)}
                               onChange={(e) => set("remoteOnly", e.target.checked)}
-                              className="h-3.5 w-3.5 rounded border-[--border] accent-[--accent-primary]"
+                              className="h-3.5 w-3.5 rounded border-(--border) accent-(--accent-primary)"
                             />
                             Remote-only internships
                           </label>
@@ -530,10 +530,10 @@ export default function ProfilePage() {
           )}
 
           {/* Save button */}
-          <div className="sticky bottom-0 mt-12 border-t border-[--border] bg-[--bg-content] pt-5 pb-5">
+          <div className="sticky bottom-0 mt-12 border-t border-(--border) bg-(--bg-content) pt-5 pb-5">
             <div className="flex items-center justify-between">
               {!requiredFieldsMet ? (
-                <span className="text-[11px] text-[--text-muted]">
+                <span className="text-[11px] text-(--text-muted)">
                   Missing: {missingRequired.map((f) => f.label).join(", ")}
                 </span>
               ) : <span />}

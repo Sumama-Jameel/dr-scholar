@@ -182,41 +182,31 @@ export default function ChatPage() {
   const hasProfile = Object.keys(profile).length > 0;
 
   return (
-    <div className="mx-auto flex h-[calc(100vh-3rem)] max-w-3xl flex-col">
+    <div className="mx-auto flex h-[calc(100dvh-3.5rem)] max-w-3xl flex-col">
       {/* Profile bar */}
       {!hasProfile ? (
-        <div className="mb-3 border-2 border-[--border-strong] bg-[--bg-content] px-4 py-3 text-[12px] text-[--text-secondary]">
+        <div className="mb-3 border-2 border-(--border-strong) bg-(--bg-content) px-4 py-3 text-[12px] text-(--text-secondary)">
           No profile yet — the agent will ask you, or{" "}
-          <Link href="/" className="font-medium text-[--accent-primary] underline decoration-[--accent-primary]/30 underline-offset-2 hover:decoration-[--accent-primary]">
+          <Link href="/" className="font-medium text-(--accent-primary) underline decoration-(--accent-primary)/30 underline-offset-2 hover:decoration-(--accent-primary)">
             build your profile first
           </Link>
         </div>
-      ) : (
-        <div className="mb-3 flex items-center justify-between border-2 border-[--border-strong] bg-[--bg-content] px-4 py-2.5 text-[12px] text-[--text-secondary]">
-          <span>
-            <strong className="text-[--text-primary]">{profile.fullName || "You"}</strong> · {(profile.level ?? "level?").replace(/_/g, " ")} ·{" "}
-            {profile.field ?? "field?"}{profile.citizenship ? ` · ${profile.citizenship}` : ""}
-          </span>
-          <Link href="/" className="btn btn-sm">
-            edit
-          </Link>
-        </div>
-      )}
+      ) : null}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto py-4">
         {msgs.length === 0 ? (
           <div className="py-16 text-center">
-            <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded bg-[--accent-primary] text-[11px] font-bold text-white" style={{ fontFamily: "var(--font-display)" }}>
+            <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded bg-(--accent-primary) text-[11px] font-bold text-white" style={{ fontFamily: "var(--font-display)" }}>
               DS
             </div>
             <h2
-              className="text-[13px] font-bold tracking-wide text-[--text-primary]"
+              className="text-[13px] font-bold tracking-wide text-(--text-primary)"
               style={{ fontFamily: "var(--font-display)" }}
             >
               Dr Scholar
             </h2>
-            <p className="mx-auto mt-3 max-w-sm text-[14px] leading-relaxed text-[--text-secondary]">
+            <p className="mx-auto mt-3 max-w-sm text-[14px] leading-relaxed text-(--text-secondary)">
               I deep-research real scholarships &amp; internships matched to your profile, verify deadlines on official pages, and hand you an apply-plan.
             </p>
             <div className="mx-auto mt-8 grid max-w-md grid-cols-2 gap-3">
@@ -224,12 +214,12 @@ export default function ChatPage() {
                 <button
                   key={s.label}
                   onClick={() => send(s.label === "Ask me first" ? s.desc : `Do a full ${s.label.toLowerCase()} for me`)}
-                  className="rounded-xl border-2 border-[--border-strong] bg-[--bg-content] p-5 text-left transition-colors hover:border-[--accent-primary] hover:bg-[--bg-surface]"
+                  className="rounded-xl border-2 border-(--border-strong) bg-(--bg-content) p-5 text-left transition-colors hover:border-(--accent-primary) hover:bg-(--bg-surface)"
                 >
-                  <p className="text-[11px] font-bold text-[--text-primary]" style={{ fontFamily: "var(--font-display)" }}>
+                  <p className="text-[11px] font-bold text-(--text-primary)" style={{ fontFamily: "var(--font-display)" }}>
                     {s.label}
                   </p>
-                  <p className="mt-2 text-[12px] leading-relaxed text-[--text-muted]">{s.desc}</p>
+                  <p className="mt-2 text-[12px] leading-relaxed text-(--text-muted)">{s.desc}</p>
                 </button>
               ))}
             </div>
@@ -240,12 +230,12 @@ export default function ChatPage() {
           {msgs.map((m) =>
             m.role === "user" ? (
               <div key={m.id} className="flex justify-end">
-                <div className="max-w-[80%] whitespace-pre-wrap rounded-2xl bg-[--accent-primary] px-4 py-2.5 text-[13px] leading-relaxed text-white">
+                <div className="max-w-[80%] whitespace-pre-wrap rounded-2xl bg-(--accent-primary) px-4 py-2.5 text-[13px] leading-relaxed text-white">
                   {m.text}
                 </div>
               </div>
             ) : (
-              <div key={m.id} className="w-full space-y-2 rounded-xl bg-[#E7E5E4] px-5 py-4 text-[--text-primary]">
+              <div key={m.id} className="w-full space-y-2 rounded-xl border border-(--border) bg-white px-5 py-4 text-(--text-primary) shadow-sm">
                 {m.tools.map((ev, i) => (
                   <ToolChip key={i} ev={ev} />
                 ))}
@@ -266,8 +256,8 @@ export default function ChatPage() {
           // Don't show "Thinking..." if a tool is already showing its own status
           if (hasRunningTool) return null;
           return (
-            <div className="mt-4 flex items-center gap-2 text-[12px] text-[--text-muted]">
-              <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-[--accent-primary]" />
+            <div className="mt-4 flex items-center gap-2 text-[12px] text-(--text-muted)">
+              <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-(--accent-primary)" />
               <span>Thinking…</span>
             </div>
           );
@@ -277,11 +267,11 @@ export default function ChatPage() {
 
       {/* Error */}
       {error ? (
-        <div className="mb-2 rounded-lg border border-[--accent-danger]/20 bg-[--accent-danger]/5 p-3 text-[12px] text-[--accent-danger]">{error}</div>
+        <div className="mb-2 rounded-lg border border-(--accent-danger)/20 bg-(--accent-danger)/5 p-3 text-[12px] text-(--accent-danger)">{error}</div>
       ) : null}
 
       {/* Input */}
-      <div className="flex items-end gap-2 border-t-2 border-[--border-strong] bg-[--bg-content] pt-3">
+      <div className="flex items-end gap-2 border-t-2 border-(--border-strong) bg-(--bg-content) pt-3">
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -294,7 +284,7 @@ export default function ChatPage() {
           placeholder="Ask anything…"
           rows={2}
           disabled={busy}
-          className="flex-1 resize-none rounded border-2 border-[--border-strong] bg-[--bg-content] px-3 py-2.5 text-[13px] text-[--text-primary] placeholder-[--text-muted] outline-none transition-colors focus:border-[--accent-primary] focus:ring-1 focus:ring-[--accent-primary]/10 disabled:opacity-50"
+          className="flex-1 resize-none rounded border-2 border-(--border-strong) bg-(--bg-content) px-3 py-2.5 text-[13px] text-(--text-primary) placeholder-(--text-muted) outline-none transition-colors focus:border-(--accent-primary) focus:ring-1 focus:ring-(--accent-primary)/10 disabled:opacity-50"
         />
         {busy ? (
           <button onClick={stop} className="btn">
@@ -312,7 +302,7 @@ export default function ChatPage() {
       </div>
 
       {/* Footer */}
-      <div className="mt-3 flex items-center justify-between bg-[--bg-content] text-[11px] text-[--text-muted]">
+      <div className="mt-3 flex items-center justify-between bg-(--bg-content) text-[11px] text-(--text-muted)">
         <span>Enter to send · Shift+Enter for newline</span>
         <button
           onClick={downloadReport}

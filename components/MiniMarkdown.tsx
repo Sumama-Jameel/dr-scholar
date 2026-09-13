@@ -25,17 +25,17 @@ function inline(text: string, keyBase: string): React.ReactNode[] {
     const key = `${keyBase}-i${i++}`;
     if (token.startsWith("***")) {
       out.push(
-        <strong key={key} className="text-[--text-primary]">
+        <strong key={key} className="text-(--text-primary)">
           <em>{token.slice(3, -3)}</em>
         </strong>
       );
     } else if (token.startsWith("**")) {
-      out.push(<strong key={key} className="text-[--text-primary]">{token.slice(2, -2)}</strong>);
+      out.push(<strong key={key} className="text-(--text-primary)">{token.slice(2, -2)}</strong>);
     } else if (token.startsWith("~~")) {
-      out.push(<del key={key} className="text-[--text-muted] line-through">{token.slice(2, -2)}</del>);
+      out.push(<del key={key} className="text-(--text-muted) line-through">{token.slice(2, -2)}</del>);
     } else if (token.startsWith("`")) {
       out.push(
-        <code key={key} className="rounded bg-[--bg-surface] px-1.5 py-0.5 text-[0.85em] text-[--text-primary]" style={{ fontFamily: "var(--font-mono)" }}>
+        <code key={key} className="rounded bg-(--bg-surface) px-1.5 py-0.5 text-[0.85em] text-(--text-primary)" style={{ fontFamily: "var(--font-mono)" }}>
           {token.slice(1, -1)}
         </code>
       );
@@ -44,7 +44,7 @@ function inline(text: string, keyBase: string): React.ReactNode[] {
       if (mm) {
         out.push(
           <a key={key} href={mm[2]} target="_blank" rel="noreferrer"
-             className="text-[--accent-primary] underline decoration-[--accent-primary]/30 underline-offset-2 hover:decoration-[--accent-primary]">
+             className="text-(--accent-primary) underline decoration-(--accent-primary)/30 underline-offset-2 hover:decoration-(--accent-primary)">
             {mm[1]}
           </a>
         );
@@ -52,7 +52,7 @@ function inline(text: string, keyBase: string): React.ReactNode[] {
     } else if (token.startsWith("http")) {
       out.push(
         <a key={key} href={token} target="_blank" rel="noreferrer"
-           className="break-all text-[--accent-primary] underline decoration-[--accent-primary]/30 underline-offset-2 hover:decoration-[--accent-primary]">
+           className="break-all text-(--accent-primary) underline decoration-(--accent-primary)/30 underline-offset-2 hover:decoration-(--accent-primary)">
           {token.length > 60 ? token.slice(0, 57) + "…" : token}
         </a>
       );
@@ -256,7 +256,7 @@ export default function MiniMarkdown({ text, className = "" }: { text: string; c
           case "h": {
             const Tag = `h${b.level}` as "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
             return (
-              <Tag key={key} className={`${headingCls[b.level] ?? headingCls[6]} text-[--text-primary]`} style={{ fontFamily: "var(--font-display)" }}>
+              <Tag key={key} className={`${headingCls[b.level] ?? headingCls[6]} text-(--text-primary)`} style={{ fontFamily: "var(--font-display)" }}>
                 {inline(b.text, `${key}-h`)}
               </Tag>
             );
@@ -273,13 +273,13 @@ export default function MiniMarkdown({ text, className = "" }: { text: string; c
                         <span
                           className={`inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] ${
                             it.checked
-                              ? "border-[--accent-primary] bg-[--accent-primary] text-white"
-                              : "border-[--border-strong] bg-[--bg-content]"
+                              ? "border-(--accent-primary) bg-(--accent-primary) text-white"
+                              : "border-(--border-strong) bg-(--bg-content)"
                           }`}
                         >
                           {it.checked ? "✓" : ""}
                         </span>
-                        <span className={it.checked ? "text-[--text-muted] line-through" : ""}>
+                        <span className={it.checked ? "text-(--text-muted) line-through" : ""}>
                           {inline(it.text, `${key}-li${j}`)}
                         </span>
                       </span>
@@ -300,13 +300,13 @@ export default function MiniMarkdown({ text, className = "" }: { text: string; c
                         <span
                           className={`inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] ${
                             it.checked
-                              ? "border-[--accent-primary] bg-[--accent-primary] text-white"
-                              : "border-[--border-strong] bg-[--bg-content]"
+                              ? "border-(--accent-primary) bg-(--accent-primary) text-white"
+                              : "border-(--border-strong) bg-(--bg-content)"
                           }`}
                         >
                           {it.checked ? "✓" : ""}
                         </span>
-                        <span className={it.checked ? "text-[--text-muted] line-through" : ""}>
+                        <span className={it.checked ? "text-(--text-muted) line-through" : ""}>
                           {inline(it.text, `${key}-oli${j}`)}
                         </span>
                       </span>
@@ -319,7 +319,7 @@ export default function MiniMarkdown({ text, className = "" }: { text: string; c
             );
           case "quote":
             return (
-              <blockquote key={key} className="border-l-[3px] border-l-[--accent-primary] bg-[--accent-primary-light] pl-4 pr-3 py-2.5 text-[--text-secondary]">
+              <blockquote key={key} className="border-l-[3px] border-l-(--accent-primary) bg-(--accent-primary-light) pl-4 pr-3 py-2.5 text-(--text-secondary)">
                 {b.paragraphs.map((p, j) => (
                   <p key={j} className={j > 0 ? "mt-2" : ""}>
                     {inline(p, `${key}-q${j}`)}
@@ -329,20 +329,20 @@ export default function MiniMarkdown({ text, className = "" }: { text: string; c
             );
           case "code":
             return (
-              <pre key={key} className="overflow-x-auto rounded-lg border border-[--border] bg-[--bg-surface] p-3.5 text-[12px] text-[--text-secondary]" style={{ fontFamily: "var(--font-mono)" }}>
+              <pre key={key} className="overflow-x-auto rounded-lg border border-(--border) bg-(--bg-surface) p-3.5 text-[12px] text-(--text-secondary)" style={{ fontFamily: "var(--font-mono)" }}>
                 {b.lang ? (
-                  <span className="mb-1 block text-[10px] uppercase tracking-wider text-[--text-muted]">{b.lang}</span>
+                  <span className="mb-1 block text-[10px] uppercase tracking-wider text-(--text-muted)">{b.lang}</span>
                 ) : null}
                 <code>{b.text}</code>
               </pre>
             );
           case "hr":
-            return <hr key={key} className="border-[--border-strong]" />;
+            return <hr key={key} className="border-(--border-strong)" />;
           case "table": {
             const [head, ...rows] = b.rows;
             if (!head) return null;
             return (
-              <div key={key} className="overflow-x-auto rounded-lg border border-[--border]">
+              <div key={key} className="overflow-x-auto rounded-lg border border-(--border)">
                 <table>
                   <thead>
                     <tr>

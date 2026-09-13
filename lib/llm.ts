@@ -131,13 +131,20 @@ function normalizeSchema(obj: unknown): unknown {
   return out;
 }
 
-/** Try a provider call with exponential backoff on rate-limit (5s, 10s, 20s — 3 retries). */
-async function withRetry<T>(fn: () => Promise<T>, label: string, maxRetries = 3): Promise<T> {
+/** Try a provider call with exponential backoff on rate-limit (5s, 10s, 20s — 3 retries).
+ *  `stopRetrying` lets callers abandon retries once content has already been streamed
+ *  to the client (re-streaming would duplicate the partial answer on screen). */
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  label: string,
+  maxRetries = 3,
+  stopRetrying?: () => boolean
+): Promise<T> {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       return await fn();
     } catch (err: unknown) {
-      if (isRateLimit(err) && attempt < maxRetries) {
+      if (isRateLimit(err) && attempt < maxRetries && !stopRetrying?.()) {
         const delay = 5000 * Math.pow(2, attempt);
         console.warn(`[llm] ${label} rate-limited (attempt ${attempt + 1}), retrying in ${delay / 1000}s…`);
         await sleep(delay);
@@ -176,6 +183,17 @@ export async function streamTurn(
   const maxTokens = opts.maxTokens ?? 8192;
   const errors: string[] = [];
 
+  // Streaming guard: once any text/tool event has been streamed to the client, a
+  // retry would re-answer on top of the partial reply (duplicated/garbled text).
+  // After the first emission we stop retrying this provider AND skip the cascade,
+  // propagating the error so the route can fall back to a clean digest instead.
+  let emitted = false;
+  const guardedOnEvent = (ev: StreamEvent) => {
+    emitted = true;
+    onEvent(ev);
+  };
+  const stopRetrying = () => emitted;
+
   // Try the full cascade up to 2 times (global retry for transient failures)
   for (let attempt = 0; attempt < 2; attempt++) {
     if (attempt > 0) {
@@ -187,13 +205,17 @@ export async function streamTurn(
     if (process.env.GROQ_API_KEY) {
       try {
         return await withRetry(
-          () => groqStream(messages, tools, { temperature, maxTokens }, onEvent),
-          "groq"
+          () => groqStream(messages, tools, { temperature, maxTokens }, guardedOnEvent),
+          "groq",
+          3,
+          stopRetrying
         );
       } catch (e: unknown) {
         const msg = (e as Error).message;
         errors.push(`groq: ${msg}`);
         console.warn("[llm] groq failed, falling back to gemini:", msg);
+        // Partial answer already streamed — re-streaming would duplicate it.
+        if (emitted) throw new Error(`groq stream interrupted after partial output: ${msg}`);
       }
     }
 
@@ -202,13 +224,17 @@ export async function streamTurn(
     for (const model of candidates) {
       try {
         return await withRetry(
-          () => geminiStream(model, messages, tools, { temperature, maxTokens }, onEvent),
-          `gemini:${model}`
+          () => geminiStream(model, messages, tools, { temperature, maxTokens }, guardedOnEvent),
+          `gemini:${model}`,
+          3,
+          stopRetrying
         );
       } catch (e: unknown) {
         const msg = (e as Error).message;
         errors.push(`gemini ${model}: ${msg}`);
         console.warn(`[llm] gemini ${model} failed:`, msg);
+        // Partial answer already streamed — don't cascade to another backend.
+        if (emitted) throw new Error(`gemini ${model} stream interrupted after partial output: ${msg}`);
       }
     }
   }

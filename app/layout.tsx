@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import DotGrid from "@/components/DotGrid";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -12,6 +13,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className="min-h-screen antialiased">
+        <DotGrid />
         <header className="sticky top-0 z-20 border-b-2 border-[--border-strong] bg-[--bg-content]/95 backdrop-blur-sm">
           <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-5">
             <Link href="/" className="flex items-center gap-3 text-[--text-primary]">

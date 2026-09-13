@@ -370,17 +370,14 @@ export async function searchWeb(
   const chain: { name: string; fn: () => Promise<SearchHit[]> }[] = [];
   if (process.env.TAVILY_API_KEY)
     chain.push({ name: "tavily", fn: () => tavilySearch(query, max) });
+  // you.com — proper API, works from datacenter IPs. Primary search engine.
+  chain.push({ name: "you.com", fn: () => youSearch(query, max) });
   // HTML scrapers — bot-gated on many datacenter IPs, but they work sometimes.
   chain.push({ name: "duckduckgo", fn: () => ddgHtml(query, max) });
   chain.push({ name: "duckduckgo-lite", fn: () => ddgLite(query, max) });
   chain.push({ name: "mojeek", fn: () => mojeek(query, max) });
-  // LAST-RESORT API engines only. GitHub/HN used to run first and flooded
-  // scholarship queries with code/community noise; Wikipedia drowned real
-  // programs out with articles. They now only fill in when everything above
-  // came up empty.
+  // Wikipedia — last resort, generic but always works.
   chain.push({ name: "wikipedia", fn: () => wikipediaSearch(query, max) });
-  // Paid fallback LAST — only burns a you.com credit if free engines came up empty.
-  chain.push({ name: "you.com", fn: () => youSearch(query, max) });
 
   for (const engine of chain) {
     if (hits.length >= max) break;

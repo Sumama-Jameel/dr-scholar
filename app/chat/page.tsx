@@ -180,6 +180,7 @@ export default function ChatPage() {
   }
 
   const hasProfile = Object.keys(profile).length > 0;
+  const lastReportId = [...msgs].reverse().find((m) => m.role === "assistant" && m.text.trim())?.id;
 
   return (
     <div className="mx-auto flex h-[calc(100dvh-3.5rem)] max-w-3xl flex-col">
@@ -240,9 +241,18 @@ export default function ChatPage() {
                   <ToolChip key={i} ev={ev} />
                 ))}
                 {m.text.trim() ? (
-                  <div className="pl-1">
-                    <MiniMarkdown text={m.text} />
-                  </div>
+                  <>
+                    <div className="pl-1">
+                      <MiniMarkdown text={m.text} />
+                    </div>
+                    {m.id === lastReportId ? (
+                      <div className="flex justify-end">
+                        <button onClick={downloadReport} className="btn btn-sm">
+                          ↓ Download report (.md)
+                        </button>
+                      </div>
+                    ) : null}
+                  </>
                 ) : null}
               </div>
             )
@@ -282,6 +292,7 @@ export default function ChatPage() {
             }
           }}
           placeholder="Ask anything…"
+          title="Enter to send · Shift+Enter for newline"
           rows={2}
           disabled={busy}
           className="flex-1 resize-none rounded border-2 border-(--border-strong) bg-(--bg-content) px-3 py-2.5 text-[13px] text-(--text-primary) placeholder-(--text-muted) outline-none transition-colors focus:border-(--accent-primary) focus:ring-1 focus:ring-(--accent-primary)/10 disabled:opacity-50"
@@ -299,18 +310,6 @@ export default function ChatPage() {
             Send
           </button>
         )}
-      </div>
-
-      {/* Footer */}
-      <div className="mt-3 flex items-center justify-between bg-(--bg-content) text-[11px] text-(--text-muted)">
-        <span>Enter to send · Shift+Enter for newline</span>
-        <button
-          onClick={downloadReport}
-          disabled={!msgs.some((m) => m.role === "assistant" && m.text.trim())}
-          className="btn btn-sm"
-        >
-          Download report (.md)
-        </button>
       </div>
     </div>
   );

@@ -164,7 +164,12 @@ export default function ToolChip({ ev }: { ev: ToolEvent }) {
   }
 
   // Done
-  const label = count !== null ? `${count} ${nounFor(ev.name)}` : "done";
+  const label =
+    count !== null
+      ? `${count} ${nounFor(ev.name)}`
+      : ev.summary
+        ? ev.summary.length > 60 ? ev.summary.slice(0, 57) + "…" : ev.summary
+        : "done";
   const duration = fmtMs(ev.ms);
 
   return (

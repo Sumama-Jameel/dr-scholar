@@ -270,12 +270,20 @@ export async function POST(req: Request) {
       });
       try {
         send({ t: "meta", model: primary });
-        const MAX_STEPS = 12;
+        const MAX_STEPS = 4; // research → verify/screen → synthesize (bounded)
+        const SYNTHESIS_RESERVE_MS = 75_000; // always leave room for the final report
         const hardDeadline = Date.now() + 270_000; // stay under the 300s function cap
 
         const toolLog: { name: string; ok: boolean; args: Record<string, unknown>; result: unknown }[] = [];
+        let reportSent = false;
 
         for (let step = 0; step < MAX_STEPS && Date.now() < hardDeadline; step++) {
+          // Once research has findings, stop tool rounds with <75s left so the
+          // model always has budget to write the actual report.
+          if (toolLog.length > 0 && Date.now() > hardDeadline - SYNTHESIS_RESERVE_MS) {
+            console.warn(`[chat] step ${step}: ${Math.round((hardDeadline - Date.now()) / 1000)}s left — forcing synthesis`);
+            break;
+          }
           let turn;
           try {
             turn = await streamTurn(messages, toolSpecs, (ev: StreamEvent) => {
@@ -289,6 +297,7 @@ export async function POST(req: Request) {
               // results instead of dumping raw tool JSON into the chat.
               if (toolLog.length > 0) {
                 send({ t: "delta", v: buildFallbackDigest(toolLog) });
+                reportSent = true;
               } else {
                 send({ t: "error", message: err.message || "model request failed" });
               }
@@ -299,10 +308,15 @@ export async function POST(req: Request) {
           if (turn.text.trim()) {
             messages.push({ role: "assistant", text: turn.text });
           }
-          if (!turn.toolCalls.length) break; // final answer fully streamed
+          if (!turn.toolCalls.length) {
+            reportSent = true; // final answer fully streamed
+            break;
+          }
 
           const toolResults: { role: "tool"; tool: { name: string; arguments: string }; content: string }[] = [];
-          for (const c of turn.toolCalls) {
+          // Run every tool in this step CONCURRENTLY — two deep_research sweeps
+          // drop from ~220s to ~110s wall time. Results emit in original order.
+          const executed = await Promise.allSettled(turn.toolCalls.map(async (c) => {
             const args = c.args ?? {};
             send({ t: "tool", name: c.name, args });
             const t0 = Date.now();
@@ -313,8 +327,10 @@ export async function POST(req: Request) {
               if (!exec) {
                 result = { error: `unknown tool: ${c.name}` };
               } else if (c.name === "search_web") {
-                // Per-tool timeout: search_web gets 25s
                 result = await withTimeout(exec(args), 25_000, "search_web");
+              } else if (c.name === "deep_research") {
+                // internal budget is ≤110s; cap slightly above to guarantee progress
+                result = await withTimeout(exec(args), 125_000, "deep_research");
               } else {
                 result = await exec(args);
               }
@@ -323,20 +339,26 @@ export async function POST(req: Request) {
               result = { error: (e as Error).message || "tool failed" };
               console.warn(`[chat] tool ${c.name} failed:`, (e as Error).message);
             }
+            return { name: c.name, args, t0, ok, result };
+          }));
+
+          for (const e of executed) {
+            if (e.status === "rejected") continue;
+            const { name, args, t0, ok, result } = e.value;
             const failed = Boolean((result as { error?: string })?.error);
             send({
               t: "tool-done",
-              name: c.name,
+              name,
               ok: ok && !failed,
-              summary: summarize(c.name, result),
+              summary: summarize(name, result),
               ms: Date.now() - t0,
               top: failed ? undefined : topFindings(result),
             });
-            toolLog.push({ name: c.name, ok: ok && !failed, args, result });
+            toolLog.push({ name, ok: ok && !failed, args, result });
             toolResults.push({
               role: "tool",
-              tool: { name: c.name, arguments: JSON.stringify(args) },
-              content: compactToolResult(c.name, result),
+              tool: { name, arguments: JSON.stringify(args) },
+              content: compactToolResult(name, result),
             });
           }
 
@@ -344,6 +366,13 @@ export async function POST(req: Request) {
           for (const tr of toolResults) {
             messages.push({ role: "user", text: `[tool result for ${tr.tool.name}]: ${tr.content}` });
           }
+        }
+
+        // Hard guarantee: research always ends in a visible report. If the loop
+        // exited without a final answer (deadline/cap/failure), emit the digest.
+        if (toolLog.length > 0 && !reportSent) {
+          console.warn("[chat] no final report streamed — serving structured digest fallback");
+          send({ t: "delta", v: buildFallbackDigest(toolLog) });
         }
 
         send({ t: "done" });

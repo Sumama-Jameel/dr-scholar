@@ -245,7 +245,7 @@ export default function ChatPage() {
                 </div>
               </div>
             ) : (
-              <div key={m.id} className="w-full space-y-2">
+              <div key={m.id} className="w-full space-y-2 rounded-lg border border-[--border] bg-[--bg-content] px-4 py-3">
                 {m.tools.map((ev, i) => (
                   <ToolChip key={i} ev={ev} />
                 ))}

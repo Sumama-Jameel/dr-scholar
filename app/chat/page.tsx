@@ -10,7 +10,6 @@ import {
   type ProfileInput,
 } from "@/lib/profile";
 
-type Health = { ok: boolean; model: string; hasKey: boolean; llmOk?: boolean; keySource?: string | null; extras: { tavily: boolean; adzuna: boolean; usajobs: boolean } };
 type Msg = { id: string; role: "user" | "assistant"; text: string; tools: ToolEvent[] };
 
 const SUGGESTIONS = [
@@ -38,18 +37,15 @@ type StreamEv = {
 
 export default function ChatPage() {
   const [profile, setProfile] = useState<ProfileInput>({});
-  const [health, setHealth] = useState<Health | null>(null);
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [model, setModel] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setProfile(readProfileFromStorage());
-    fetch("/api/health").then((r) => r.json()).then(setHealth).catch(() => setHealth(null));
     return () => abortRef.current?.abort();
   }, []);
 
@@ -97,8 +93,7 @@ export default function ChatPage() {
         if (!line) return;
         let ev: StreamEv;
         try { ev = JSON.parse(line); } catch { return; }
-        if (ev.t === "meta" && ev.model) setModel(ev.model);
-        else if (ev.t === "delta" && ev.v)
+        if (ev.t === "delta" && ev.v)
           patchAssistant(assistantId, (m) => ({ ...m, text: m.text + ev.v }));
         else if (ev.t === "tool" && ev.name)
           patchAssistant(assistantId, (m) => ({
@@ -188,27 +183,6 @@ export default function ChatPage() {
 
   return (
     <div className="mx-auto flex h-[calc(100vh-3rem)] max-w-3xl flex-col">
-      {/* Alerts */}
-      {health && !health.hasKey ? (
-        <div className="mb-3 border-2 border-[--accent-danger]/30 bg-[--accent-danger]/5 px-4 py-3 text-[12px] text-[--accent-danger]">
-          No LLM API keys found — set GROQ_API_KEY or GOOGLE_API_KEY in Vercel.
-        </div>
-      ) : null}
-      {health?.hasKey && health.llmOk === false ? (
-        <div className="mb-3 border-2 border-[--accent-gold]/30 bg-[--accent-gold]/5 px-4 py-3 text-[12px] text-[--accent-gold]">
-          API keys set but LLM backends not responding. Check keys are valid.
-        </div>
-      ) : null}
-
-      {/* Status bar */}
-      {health?.llmOk ? (
-        <div className="mb-3 flex items-center gap-2 px-1 text-[11px] text-[--text-muted]">
-          <span className="h-2 w-2 rounded-full bg-[--accent-success]" />
-          Ready
-          {health.extras.tavily ? <span>· Tavily</span> : null}
-        </div>
-      ) : null}
-
       {/* Profile bar */}
       {!hasProfile ? (
         <div className="mb-3 border-2 border-[--border-strong] bg-[--bg-content] px-4 py-3 text-[12px] text-[--text-secondary]">
@@ -285,12 +259,19 @@ export default function ChatPage() {
           )}
         </div>
 
-        {busy ? (
-          <div className="mt-4 flex items-center gap-2 text-[12px] text-[--text-muted]">
-            <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-[--accent-primary]" />
-            <span>Thinking…</span>
-          </div>
-        ) : null}
+        {busy ? (() => {
+          // Find the last assistant message
+          const lastAssistant = [...msgs].reverse().find((m) => m.role === "assistant");
+          const hasRunningTool = lastAssistant?.tools.some((t) => t.status === "running") ?? false;
+          // Don't show "Thinking..." if a tool is already showing its own status
+          if (hasRunningTool) return null;
+          return (
+            <div className="mt-4 flex items-center gap-2 text-[12px] text-[--text-muted]">
+              <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-[--accent-primary]" />
+              <span>Thinking…</span>
+            </div>
+          );
+        })() : null}
         <div ref={bottomRef} />
       </div>
 

@@ -9,91 +9,103 @@ export type ToolEvent = {
   top?: { title: string; url: string; source?: string; deadline?: string }[];
 };
 
-const TOOL_LABELS: Record<string, string> = {
-  deep_research: "Deep research",
-  search_web: "Web search",
-  fetch_page: "Fetch page",
-  jobs_api: "Jobs API",
-  seed_catalog: "Catalog",
-  eligibility_check: "Eligibility",
-};
-
-let toolCounter = 0;
-const toolNum = () => `${String(++toolCounter).padStart(2, "0")}`;
-
-function pendingSummary(ev: ToolEvent): string {
+function runningText(ev: ToolEvent): string {
   const a = ev.args ?? {};
   switch (ev.name) {
     case "deep_research":
-      return `kind=${String(a.kind ?? "?")} · ${((a.queries as string[]) ?? []).length} queries`;
+      return `Researching ${String(a.kind ?? "scholarship")}s…`;
     case "search_web":
-      return String(a.query ?? "");
+      return "Searching…";
     case "fetch_page":
-      return String(a.url ?? "");
+      return "Reading page…";
     case "jobs_api":
-      return String(a.keywords ?? "intern");
+      return "Finding listings…";
     case "seed_catalog":
-      return String(a.kind ?? "");
+      return "Checking catalog…";
     case "eligibility_check":
-      return `${((a.items as unknown[]) ?? []).length} items`;
+      return "Checking eligibility…";
     default:
-      return "running…";
+      return "Working…";
+  }
+}
+
+function doneCount(ev: ToolEvent): string | null {
+  const a = ev.args ?? {};
+  switch (ev.name) {
+    case "deep_research": {
+      const m = ev.summary?.match(/^(\d+) findings/);
+      return m ? m[1] : null;
+    }
+    case "search_web": {
+      const m = ev.summary?.match(/^(\d+) results/);
+      return m ? m[1] : null;
+    }
+    default:
+      return null;
   }
 }
 
 export default function ToolChip({ ev }: { ev: ToolEvent }) {
-  const label = TOOL_LABELS[ev.name] ?? ev.name.replace(/_/g, " ");
   const running = ev.status === "running";
   const failed = ev.status === "error";
-  const line = ev.summary ?? pendingSummary(ev);
+  const count = doneCount(ev);
 
-  return (
-    <div className="border-2 border-[--border-strong] bg-[--bg-content] px-3 py-2 text-[12px]">
-      <div className="flex items-center gap-2.5">
-        <span
-          className={`text-[9px] font-bold ${running ? "text-[--accent-primary]" : "text-[--text-muted]"}`}
-          style={{ fontFamily: "var(--font-display)" }}
-        >
-          {toolNum()}
-        </span>
-        <span className="font-medium text-[--text-primary]">{label}</span>
-        {running ? (
-          <span className="pulse-dot h-1 w-1 rounded-full bg-[--accent-primary]" />
-        ) : failed ? (
-          <span className="text-[--accent-danger]">✗</span>
-        ) : (
-          <span className="text-[--accent-success]">✓</span>
-        )}
-        <span className="ml-auto truncate text-[--text-muted]">{line}</span>
-        {ev.ms ? (
-          <span className="text-[9px] text-[--text-muted]">
-            {(ev.ms / 1000).toFixed(1)}s
-          </span>
-        ) : null}
+  if (running) {
+    return (
+      <div className="flex items-center gap-2 py-1 text-[12px] text-[--text-muted]">
+        <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-[--accent-primary]" />
+        <span>{runningText(ev)}</span>
       </div>
-      {ev.top?.length ? (
-        <div className="mt-2 space-y-1 border-t border-[--border] pt-2">
-          {ev.top.map((f, i) => (
-            <div key={i} className="flex items-start gap-2 text-[11px] text-[--text-secondary]">
-              <div className="min-w-0 flex-1">
+    );
+  }
+
+  if (failed) {
+    return (
+      <div className="flex items-center gap-2 py-1 text-[12px] text-[--accent-danger]">
+        <span>✗</span>
+        <span>{ev.summary ?? "failed"}</span>
+      </div>
+    );
+  }
+
+  // Done — show count for deep_research and search_web, plain checkmark for others
+  if (count) {
+    return (
+      <div className="py-1 text-[12px]">
+        <div className="flex items-center gap-2 text-[--text-muted]">
+          <span className="text-[--accent-success]">✓</span>
+          <span>{count} {ev.name === "deep_research" ? "findings" : "results"}</span>
+        </div>
+        {ev.top?.length ? (
+          <div className="mt-1.5 ml-5 space-y-0.5">
+            {ev.top.map((f, i) => (
+              <div key={i} className="text-[12px]">
                 <a
                   href={f.url}
                   target="_blank"
                   rel="noreferrer"
                   className="text-[--accent-primary] underline decoration-[--accent-primary]/30 underline-offset-2 hover:decoration-[--accent-primary]"
                 >
-                  {f.title.slice(0, 90)}
+                  {f.title.slice(0, 80)}
                 </a>
                 {f.deadline ? (
-                  <span className="ml-2 text-[9px] text-[--accent-gold]">
+                  <span className="ml-1.5 text-[10px] text-[--accent-gold]">
                     {f.deadline}
                   </span>
                 ) : null}
               </div>
-            </div>
-          ))}
-        </div>
-      ) : null}
+            ))}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
+  // Done — simple checkmark
+  return (
+    <div className="flex items-center gap-2 py-1 text-[12px] text-[--text-muted]">
+      <span className="text-[--accent-success]">✓</span>
+      <span>done</span>
     </div>
   );
 }

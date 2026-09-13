@@ -4,7 +4,12 @@
  * Priority:
  *   1. Qwen 3.8 27B via Groq OpenAI-compatible endpoint  (env: GROQ_API_KEY)
  *   2. Google Gemini 3.1 Pro via Gemini REST             (env: GEMINI_API_KEY / GOOGLE_API_KEY)
-  *   3. Fallback: Google Gemini 2.5 Flash                 (same key, different model)
+ *   3. Fallback: Google Gemini 2.5 Flash                 (same key, different model)
+ *
+ * Reliability:
+ *   - Per-provider retry on 429/rate-limit (2 attempts, 2s backoff)
+ *   - Per-fetch timeout (45s) to prevent hanging
+ *   - Global retry: if all providers fail, wait 3s and try the full cascade again
  */
 
 import { extractTitle } from "./html";
@@ -40,6 +45,11 @@ export type JsonResult = {
 
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
+}
+
+function isRateLimit(err: unknown): boolean {
+  const msg = (err as Error)?.message ?? "";
+  return /429|rate.?limit|too.many|throttl/i.test(msg);
 }
 
 function geminiKey(): string | undefined {
@@ -121,9 +131,36 @@ function normalizeSchema(obj: unknown): unknown {
   return out;
 }
 
+/** Try a provider call with retry on rate-limit (max 2 attempts, 2s delay). */
+async function withRetry<T>(fn: () => Promise<T>, label: string): Promise<T> {
+  try {
+    return await fn();
+  } catch (err: unknown) {
+    if (isRateLimit(err)) {
+      console.warn(`[llm] ${label} rate-limited, retrying in 2s…`);
+      await sleep(2000);
+      return await fn();
+    }
+    throw err;
+  }
+}
+
+/** Fetch with a timeout to prevent hanging connections. */
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...init, signal: controller.signal });
+    return res;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /* ----------------------- groq (Qwen) ----------------------- */
 
 const GROQ_BASE = "https://api.groq.com/openai/v1";
+const LLM_TIMEOUT_MS = 45_000;
 
 export async function streamTurn(
   messages: ChatMsg[],
@@ -133,26 +170,55 @@ export async function streamTurn(
 ): Promise<StreamTurnResult> {
   const temperature = opts.temperature ?? 0.4;
   const maxTokens = opts.maxTokens ?? 8192;
+  const errors: string[] = [];
 
-  // try groq first (Qwen primary)
-  if (process.env.GROQ_API_KEY) {
-    try {
-      return await groqStream(messages, tools, { temperature, maxTokens }, onEvent);
-    } catch (e: unknown) {
-      console.warn("[llm] groq failed, falling back to gemini:", (e as Error).message);
+  // Try the full cascade up to 2 times (global retry for transient failures)
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (attempt > 0) {
+      console.warn("[llm] all providers failed, retrying entire cascade in 3s…");
+      await sleep(3000);
+    }
+
+    // try groq first (Qwen primary)
+    if (process.env.GROQ_API_KEY) {
+      try {
+        return await withRetry(
+          () => groqStream(messages, tools, { temperature, maxTokens }, onEvent),
+          "groq"
+        );
+      } catch (e: unknown) {
+        const msg = (e as Error).message;
+        errors.push(`groq: ${msg}`);
+        console.warn("[llm] groq failed, falling back to gemini:", msg);
+      }
+    }
+
+    // fallback: gemini 3.1 pro, then 2.5 flash
+    const candidates = ["gemini-3.1-pro-preview", "gemini-2.5-flash"];
+    for (const model of candidates) {
+      try {
+        return await withRetry(
+          () => geminiStream(model, messages, tools, { temperature, maxTokens }, onEvent),
+          `gemini:${model}`
+        );
+      } catch (e: unknown) {
+        const msg = (e as Error).message;
+        errors.push(`gemini ${model}: ${msg}`);
+        console.warn(`[llm] gemini ${model} failed:`, msg);
+      }
     }
   }
 
-  // fallback: gemini 3.1 pro, then 2.5 flash
-  const candidates = ["gemini-3.1-pro-preview", "gemini-2.5-flash"];
-  for (const model of candidates) {
-    try {
-      return await geminiStream(model, messages, tools, { temperature, maxTokens }, onEvent);
-    } catch (e: unknown) {
-      console.warn(`[llm] gemini ${model} failed:`, (e as Error).message);
-    }
-  }
+  // All providers failed on all attempts — build a helpful error message
+  const allRateLimited = errors.every((e) => /429|rate.?limit|too.many|throttl/i.test(e));
+  const anyAuthError = errors.some((e) => /401|403|auth|invalid.*key/i.test(e));
 
+  if (allRateLimited) {
+    throw new Error("All LLM backends are rate-limited. Please wait a moment and try again.");
+  }
+  if (anyAuthError) {
+    throw new Error("LLM API key is invalid. Check your GROQ_API_KEY or GEMINI_API_KEY in Vercel.");
+  }
   throw new Error(
     "LLM backend unavailable. Set GROQ_API_KEY (Qwen) or GEMINI_API_KEY/GOOGLE_API_KEY (Gemini)."
   );
@@ -184,16 +250,16 @@ async function groqStream(
     body.tool_choice = "auto";
   }
 
-  const res = await fetch(`${GROQ_BASE}/chat/completions`, {
+  const res = await fetchWithTimeout(`${GROQ_BASE}/chat/completions`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${process.env.GROQ_API_KEY!}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
-  });
+  }, LLM_TIMEOUT_MS);
 
-    if (!res.ok) {
+  if (!res.ok) {
     const txt = (await res.text()).slice(0, 400);
     throw new Error(`groq error ${res.status}: ${txt}`);
   }
@@ -349,9 +415,10 @@ async function geminiStream(
     }));
   }
 
-  const res = await fetch(
+  const res = await fetchWithTimeout(
     `${GEMINI_BASE}/models/${model}:streamGenerateContent?alt=sse&key=${key}`,
-    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) },
+    LLM_TIMEOUT_MS
   );
 
   if (!res.ok) {
@@ -531,7 +598,7 @@ export async function generateJson(
       }
     }
     try {
-      const res = await fetch(`${GROQ_BASE}/chat/completions`, {
+      const res = await fetchWithTimeout(`${GROQ_BASE}/chat/completions`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${process.env.GROQ_API_KEY!}`,
@@ -543,7 +610,7 @@ export async function generateJson(
           temperature,
           max_tokens: 2048,
         }),
-      });
+      }, LLM_TIMEOUT_MS);
       groqStatus = String(res.status);
       if (res.ok) {
         const data = (await res.json()) as {
@@ -579,7 +646,7 @@ export async function generateJson(
       }));
 
     try {
-      const res = await fetch(`${GEMINI_BASE}/models/${model}:generateContent?key=${key}`, {
+      const res = await fetchWithTimeout(`${GEMINI_BASE}/models/${model}:generateContent?key=${key}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -592,7 +659,7 @@ export async function generateJson(
             responseSchema: normalizeSchema(schema),
           },
         }),
-      });
+      }, LLM_TIMEOUT_MS);
       geminiStatus = String(res.status);
       if (res.ok) {
         const data = (await res.json()) as {
@@ -616,11 +683,3 @@ export async function generateJson(
 
   throw new Error(`JSON generation failed. Groq: ${groqStatus}, Gemini: ${geminiStatus}`);
 }
-
-
-
-
-
-
-
-

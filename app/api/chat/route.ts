@@ -51,6 +51,16 @@ function topFindings(
     .map((f) => ({ title: f.title, url: f.url, source: f.source, deadline: f.deadline }));
 }
 
+/** Run a promise with a timeout. Rejects if it takes too long. */
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out after ${ms / 1000}s`)), ms)
+    ),
+  ]);
+}
+
 export async function POST(req: Request) {
   const backends = llmBackends();
   if (!backends.some((b) => b.available)) {
@@ -121,9 +131,10 @@ export async function POST(req: Request) {
           } catch (e: unknown) {
             const err = e as Error;
             if (err.message !== "aborted" && !req.signal.aborted) {
+              console.warn(`[chat] streamTurn failed at step ${step}:`, err.message);
               send({ t: "error", message: err.message || "model request failed" });
             }
-                        return;
+            return;
           }
 
           if (turn.text.trim()) {
@@ -140,10 +151,18 @@ export async function POST(req: Request) {
             let ok = true;
             try {
               const exec = executors[c.name];
-              result = exec ? await exec(args) : { error: `unknown tool: ${c.name}` };
+              if (!exec) {
+                result = { error: `unknown tool: ${c.name}` };
+              } else if (c.name === "search_web") {
+                // Per-tool timeout: search_web gets 25s
+                result = await withTimeout(exec(args), 25_000, "search_web");
+              } else {
+                result = await exec(args);
+              }
             } catch (e: unknown) {
               ok = false;
               result = { error: (e as Error).message || "tool failed" };
+              console.warn(`[chat] tool ${c.name} failed:`, (e as Error).message);
             }
             const deepOk = c.name === "deep_research" && !(result as { error?: string })?.error;
             send({

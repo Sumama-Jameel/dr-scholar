@@ -2,26 +2,26 @@
 @import "tailwindcss";
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
   --font-display: "Space Grotesk", system-ui, sans-serif;
   --font-body: "Inter", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
-  --bg-base: #0B0F1A;
-  --bg-surface: #111827;
-  --bg-surface-hover: #1A2332;
-  --border: #1E293B;
-  --border-subtle: rgba(255, 255, 255, 0.06);
+  --bg-base: #FFFFFF;
+  --bg-surface: #F9FAFB;
+  --bg-surface-hover: #F3F4F6;
+  --border: #E5E7EB;
+  --border-subtle: #F3F4F6;
 
-  --accent-primary: #6366F1;
-  --accent-primary-light: #818CF8;
-  --accent-gold: #F59E0B;
-  --accent-success: #10B981;
-  --accent-danger: #EF4444;
+  --accent-primary: #000000;
+  --accent-primary-light: #374151;
+  --accent-gold: #D97706;
+  --accent-success: #059669;
+  --accent-danger: #DC2626;
 
-  --text-primary: #F1F5F9;
-  --text-secondary: #94A3B8;
-  --text-muted: #64748B;
+  --text-primary: #111827;
+  --text-secondary: #6B7280;
+  --text-muted: #9CA3AF;
 }
 
 html {
@@ -33,117 +33,105 @@ body {
   background: var(--bg-base);
   min-height: 100vh;
   color: var(--text-secondary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: rgba(0, 0, 0, 0.08);
 }
 
 /* scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #1E293B;
-  border-radius: 8px;
+  background: #D1D5DB;
+  border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #334155;
+  background: #9CA3AF;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 
-/* streaming shimmer */
-@keyframes shimmer {
-  0% { background-position: -400px 0; }
-  100% { background-position: 400px 0; }
-}
-.shimmer {
-  animation: shimmer 1.4s linear infinite;
-  background: linear-gradient(90deg, #1E293B 25%, #334155 37%, #1E293B 63%);
-  background-size: 400px 100%;
-}
-
-/* animated gradient border for active sections */
-@keyframes gradient-border {
-  0%, 100% { border-color: var(--accent-primary); }
-  50% { border-color: var(--accent-gold); }
-}
-.gradient-border-active {
-  animation: gradient-border 3s ease-in-out infinite;
+/* focus ring */
+*:focus-visible {
+  outline: 2px solid #000;
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 /* subtle pulse for thinking indicator */
 @keyframes pulse-dot {
-  0%, 100% { opacity: 0.4; transform: scale(0.8); }
-  50% { opacity: 1; transform: scale(1); }
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
 }
 .pulse-dot {
-  animation: pulse-dot 1.5s ease-in-out infinite;
+  animation: pulse-dot 1.4s ease-in-out infinite;
 }
 
 /* markdown body styles */
 .md-body {
   font-family: var(--font-body);
   color: var(--text-secondary);
-  line-height: 1.7;
+  line-height: 1.75;
 }
 .md-body h1, .md-body h2, .md-body h3, .md-body h4, .md-body h5, .md-body h6 {
   font-family: var(--font-display);
   color: var(--text-primary);
   line-height: 1.3;
+  font-weight: 600;
 }
 .md-body h5, .md-body h6 {
   color: var(--text-secondary);
-  letter-spacing: 0.03em;
+  letter-spacing: 0.02em;
 }
 .md-body table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.875rem;
-  border-radius: 8px;
-  overflow: hidden;
 }
 .md-body th,
 .md-body td {
   border: 1px solid var(--border);
-  padding: 0.6rem 0.75rem;
+  padding: 0.5rem 0.75rem;
   text-align: left;
   vertical-align: top;
 }
 .md-body th {
-  background: rgba(99, 102, 241, 0.1);
+  background: var(--bg-surface);
   color: var(--text-primary);
   font-family: var(--font-display);
   font-weight: 600;
   font-size: 0.8rem;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-.md-body tr:nth-child(even) td {
-  background: rgba(15, 23, 42, 0.5);
+  letter-spacing: 0.04em;
 }
 .md-body tr:hover td {
-  background: rgba(26, 35, 50, 0.6);
+  background: var(--bg-surface);
 }
 .md-body blockquote {
-  border-left: 3px solid var(--accent-primary);
-  background: rgba(99, 102, 241, 0.05);
-  padding: 0.75rem 1rem;
-  border-radius: 0 6px 6px 0;
+  border-left: 2px solid var(--border);
+  padding-left: 1rem;
+  color: var(--text-muted);
   margin: 0.75rem 0;
 }
 .md-body pre {
   border-radius: 8px;
   border: 1px solid var(--border);
+  background: var(--bg-surface);
 }
 .md-body a {
-  color: var(--accent-primary-light);
+  color: var(--text-primary);
   text-decoration: underline;
-  text-decoration-color: rgba(129, 140, 248, 0.3);
-  transition: all 0.15s ease;
+  text-decoration-color: rgba(0, 0, 0, 0.15);
+  transition: text-decoration-color 0.15s ease;
 }
 .md-body a:hover {
-  color: #a5b4fc;
-  text-decoration-color: rgba(165, 180, 252, 0.6);
+  text-decoration-color: rgba(0, 0, 0, 0.5);
 }
 .md-body del {
   color: var(--text-muted);

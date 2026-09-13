@@ -12,23 +12,23 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className="min-h-screen antialiased">
-        <header className="sticky top-0 z-20 border-b border-[--border] bg-[--bg-base]/80 backdrop-blur-xl">
-          <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
-            <Link href="/" className="flex items-center gap-2 text-lg font-bold tracking-tight text-[--text-primary]" style={{ fontFamily: "var(--font-display)" }}>
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-[--accent-primary] to-[--accent-primary-light] text-xs text-white">DS</span>
-              Dr<span className="text-[--accent-primary-light]">Scholar</span>
+        <header className="sticky top-0 z-20 border-b border-[--border] bg-white/90 backdrop-blur-sm">
+          <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-5">
+            <Link href="/" className="flex items-center gap-2 text-[15px] font-semibold tracking-tight text-[--text-primary]" style={{ fontFamily: "var(--font-display)" }}>
+              <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[--accent-primary] text-[11px] font-bold text-white">DS</span>
+              DrScholar
             </Link>
-            <nav className="flex items-center gap-1 text-sm">
-              <Link href="/" className="rounded-lg px-3 py-1.5 text-[--text-secondary] transition-colors hover:bg-[--bg-surface-hover] hover:text-[--text-primary]">
+            <nav className="flex items-center gap-1 text-[13px]">
+              <Link href="/" className="rounded-md px-3 py-1.5 text-[--text-muted] transition-colors hover:text-[--text-primary]">
                 Profile
               </Link>
-              <Link href="/chat" className="rounded-lg px-3 py-1.5 text-[--text-secondary] transition-colors hover:bg-[--bg-surface-hover] hover:text-[--text-primary]">
+              <Link href="/chat" className="rounded-md px-3 py-1.5 text-[--text-muted] transition-colors hover:text-[--text-primary]">
                 Agent
               </Link>
             </nav>
           </div>
         </header>
-        <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
+        <main className="mx-auto max-w-6xl px-5 py-10">{children}</main>
       </body>
     </html>
   );

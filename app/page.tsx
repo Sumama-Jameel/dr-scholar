@@ -22,15 +22,15 @@ const LEVELS: { value: string; label: string }[] = [
 ];
 
 const inputCls =
-  "w-full rounded-lg border border-[--border] bg-[--bg-base]/60 px-3.5 py-2.5 text-sm text-[--text-primary] placeholder-[--text-muted] outline-none transition-colors focus:border-[--accent-primary] focus:ring-1 focus:ring-[--accent-primary]/30";
+  "w-full rounded-lg border border-[--border] bg-white px-3.5 py-2 text-[13px] text-[--text-primary] placeholder-[--text-muted] outline-none transition-colors focus:border-[--accent-primary] focus:ring-1 focus:ring-[--accent-primary]/10";
 
 function FieldLabel({ children, hint, required }: { children: React.ReactNode; hint?: string; required?: boolean }) {
   return (
     <span className="mb-1.5 flex items-baseline gap-2">
-      <span className="text-xs font-medium uppercase tracking-wide text-[--text-muted]">
-        {children}{required ? <span className="text-[--accent-danger]">*</span> : null}
+      <span className="text-[13px] font-medium text-[--text-primary]">
+        {children}{required ? <span className="text-[--accent-danger] ml-0.5">*</span> : null}
       </span>
-      {hint ? <span className="text-[11px] normal-case text-[--text-muted]/60">{hint}</span> : null}
+      {hint ? <span className="text-[11px] text-[--text-muted]">{hint}</span> : null}
     </span>
   );
 }
@@ -66,11 +66,11 @@ function sectionStatus(id: SectionId, p: ProfileInput): "complete" | "partial" |
 function ChevronIcon({ open }: { open: boolean }) {
   return (
     <svg
-      className={`h-4 w-4 text-[--text-muted] transition-transform duration-200 ${open ? "rotate-90" : ""}`}
+      className={`h-4 w-4 text-[--text-muted] transition-transform duration-150 ${open ? "rotate-90" : ""}`}
       fill="none"
       viewBox="0 0 24 24"
       stroke="currentColor"
-      strokeWidth={2}
+      strokeWidth={1.5}
     >
       <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
     </svg>
@@ -79,10 +79,10 @@ function ChevronIcon({ open }: { open: boolean }) {
 
 function StatusDot({ status }: { status: "complete" | "partial" | "empty" }) {
   if (status === "complete")
-    return <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[--accent-success]/20 text-[10px] text-[--accent-success]">✓</span>;
+    return <span className="flex h-5 w-5 items-center justify-center text-[11px] text-[--accent-success]">✓</span>;
   if (status === "partial")
-    return <span className="h-2 w-2 rounded-full bg-[--accent-gold]" />;
-  return <span className="h-2 w-2 rounded-full bg-[--text-muted]/30" />;
+    return <span className="h-1.5 w-1.5 rounded-full bg-[--accent-gold]" />;
+  return <span className="h-1.5 w-1.5 rounded-full bg-[--border]" />;
 }
 
 export default function ProfilePage() {
@@ -150,7 +150,6 @@ export default function ProfilePage() {
 
     const ext = f.name.split(".").pop()?.toLowerCase() ?? "";
 
-    // PDF handling
     if (ext === "pdf" || f.type === "application/pdf") {
       setParseMsg({ ok: true, text: `Reading "${f.name}"…` });
       try {
@@ -171,7 +170,6 @@ export default function ProfilePage() {
       return;
     }
 
-    // Text file handling
     const validExts = ["md", "txt", "json", "csv"];
     const validTypes = ["text/plain", "text/markdown", "text/csv", "application/json", ""];
     if (!validExts.includes(ext) && !validTypes.includes(f.type)) {
@@ -207,7 +205,6 @@ export default function ProfilePage() {
       setP((prev) => ({ ...prev, ...clean }));
       setDrafts({});
 
-      // Build summary message
       const extractedCount = data.extractedFields ?? Object.keys(clean).length;
       const missingRequired = REQUIRED_FIELDS.filter((f) => {
         const v = (clean as Record<string, unknown>)[f.key];
@@ -225,7 +222,6 @@ export default function ProfilePage() {
       setParseMsg({ ok: true, text: msg });
       setTab("form");
 
-      // Auto-expand first section with missing required fields
       if (missingRequired.length > 0) {
         setOpenSection(missingRequired[0].section);
       } else {
@@ -253,7 +249,7 @@ export default function ProfilePage() {
   function isFieldFilled(key: keyof ProfileInput): boolean {
     const v = p[key];
     if (Array.isArray(v)) return v.length > 0;
-    if (typeof v === "boolean") return true; // checkboxes are always "filled"
+    if (typeof v === "boolean") return true;
     return v !== undefined && v !== null && String(v).trim() !== "";
   }
 
@@ -261,44 +257,42 @@ export default function ProfilePage() {
   const requiredFieldsMet = missingRequired.length === 0;
 
   return (
-    <div className="mx-auto max-w-3xl">
-      {/* header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-[--text-primary]" style={{ fontFamily: "var(--font-display)" }}>
+    <div className="mx-auto max-w-2xl">
+      <div className="mb-10">
+        <h1 className="text-2xl font-bold tracking-tight text-[--text-primary]" style={{ fontFamily: "var(--font-display)" }}>
           Build your student profile
         </h1>
-        <p className="mt-1.5 text-sm text-[--text-secondary]">
-          Everything stays in <strong className="text-[--text-primary]">your browser</strong> (localStorage). The agent uses it to personalize research. Fill what you can — it asks for anything critical that&apos;s missing.
+        <p className="mt-2 text-[14px] text-[--text-secondary]">
+          Everything stays in your browser. The agent uses it to personalize research — fill what you can, it asks for anything critical that&apos;s missing.
         </p>
       </div>
 
-      {/* tabs */}
-      <div className="mb-5 flex gap-2">
+      <div className="mb-6 flex items-center gap-2">
         {(["form", "doc"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${
+            className={`rounded-full px-4 py-1.5 text-[13px] font-medium transition-all ${
               tab === t
-                ? "bg-[--accent-primary] text-white shadow-lg shadow-[--accent-primary]/20"
-                : "bg-[--bg-surface] text-[--text-secondary] hover:bg-[--bg-surface-hover] hover:text-[--text-primary]"
+                ? "bg-[--accent-primary] text-white"
+                : "text-[--text-muted] hover:text-[--text-primary]"
             }`}
           >
-            {t === "form" ? "Quick form" : "Fill the document"}
+            {t === "form" ? "Quick form" : "Upload document"}
           </button>
         ))}
         <a
           href="/student-profile-template.md"
           download
-          className="ml-auto rounded-lg border border-[--border] px-4 py-2 text-sm text-[--text-secondary] transition-colors hover:border-[--accent-primary] hover:text-[--text-primary]"
+          className="ml-auto text-[13px] text-[--text-muted] underline decoration-[--border] underline-offset-2 hover:text-[--text-primary] hover:decoration-[--text-muted]"
         >
-          Download template (.md)
+          Download template
         </a>
       </div>
 
       {tab === "doc" ? (
-        <div className="rounded-xl border border-[--border] bg-[--bg-surface] p-6">
-          <ol className="mb-4 list-decimal space-y-1.5 pl-5 text-sm text-[--text-secondary]">
+        <div className="rounded-xl border border-[--border] bg-white p-6">
+          <ol className="mb-5 list-decimal space-y-1.5 pl-5 text-[13px] text-[--text-secondary]">
             <li>Download the template above (or use any CV/notes file).</li>
             <li>Fill it in with your details (.md / .txt / .pdf / any plain text).</li>
             <li>Upload it here or paste the text — the AI extracts your profile.</li>
@@ -307,55 +301,53 @@ export default function ProfilePage() {
             type="file"
             accept=".pdf,.md,.txt,.json,.csv"
             onChange={onFile}
-            className="mb-3 block w-full text-sm text-[--text-muted] file:mr-3 file:rounded-lg file:border-0 file:bg-[--accent-primary] file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-[--accent-primary-light]"
+            className="mb-4 block w-full text-[13px] text-[--text-muted] file:mr-3 file:rounded-lg file:border file:border-[--border] file:bg-white file:px-4 file:py-2 file:text-[13px] file:font-medium file:text-[--text-primary] hover:file:bg-[--bg-surface]"
           />
           <textarea
             value={docText}
             onChange={(e) => setDocText(e.target.value.slice(0, 20000))}
             placeholder="…or paste your filled document / CV text here"
-            className={`${inputCls} h-48 font-[--font-mono] text-[13px]`}
+            className={`${inputCls} h-44 text-[13px]`}
+            style={{ fontFamily: "var(--font-mono)" }}
           />
-          <div className="mt-3 flex items-center gap-3">
+          <div className="mt-4 flex items-center gap-4">
             <button
               onClick={parseDoc}
               disabled={parsing || docText.trim().length < 20}
-              className="rounded-lg bg-[--accent-primary] px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[--accent-primary]/20 hover:bg-[--accent-primary-light] disabled:opacity-40"
+              className="rounded-lg bg-[--accent-primary] px-5 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[--accent-primary-light] disabled:opacity-30"
             >
               {parsing ? "Parsing…" : "Parse with AI"}
             </button>
             {parseMsg ? (
-              <span className={`text-sm ${parseMsg.ok ? "text-[--accent-success]" : "text-[--accent-danger]"}`}>
+              <span className={`text-[13px] ${parseMsg.ok ? "text-[--accent-success]" : "text-[--accent-danger]"}`}>
                 {parseMsg.text}
               </span>
             ) : null}
           </div>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-1">
           {SECTIONS.map((sec) => {
             const isOpen = openSection === sec.id;
             const status = sectionStatus(sec.id, p);
             return (
               <div
                 key={sec.id}
-                className={`rounded-xl border bg-[--bg-surface] transition-all duration-200 ${
-                  isOpen ? "border-[--accent-primary]/40 shadow-lg shadow-[--accent-primary]/5" : "border-[--border] hover:border-[--border]/80"
-                }`}
+                className={`rounded-xl transition-colors ${isOpen ? "bg-[--bg-surface]" : "hover:bg-[--bg-surface]/50"}`}
               >
                 <button
                   onClick={() => setOpenSection(isOpen ? null : sec.id)}
-                  className="flex w-full items-center gap-3 p-4 text-left"
+                  className="flex w-full items-center gap-3 px-4 py-3.5 text-left"
                 >
                   <ChevronIcon open={isOpen} />
-                  <span className="text-lg">{sec.icon}</span>
-                  <span className="flex-1 text-sm font-semibold text-[--text-primary]" style={{ fontFamily: "var(--font-display)" }}>
+                  <span className="flex-1 text-[14px] font-medium text-[--text-primary]" style={{ fontFamily: "var(--font-display)" }}>
                     {sec.label}
                   </span>
                   <StatusDot status={status} />
                 </button>
 
                 {isOpen && (
-                  <div className="border-t border-[--border] px-5 py-5">
+                  <div className="px-4 pb-5 pt-1">
                     {sec.id === "personal" && (
                       <div className="grid gap-4 md:grid-cols-2">
                         <label>
@@ -392,11 +384,11 @@ export default function ProfilePage() {
                           <input className={inputCls} value={p.field ?? ""} onChange={(e) => set("field", e.target.value)} placeholder="Computer Science" />
                         </label>
                         <label>
-                          <FieldLabel>Field keywords <span className="normal-case">(comma separated)</span></FieldLabel>
+                          <FieldLabel hint="comma separated">Field keywords</FieldLabel>
                           <input className={inputCls} value={draftFor("fieldKeywords")} onChange={(e) => setDrafts({ ...drafts, fieldKeywords: e.target.value })} placeholder="AI, machine learning, web dev" />
                         </label>
                         <label>
-                          <FieldLabel>GPA / grades <span className="normal-case">(as-is)</span></FieldLabel>
+                          <FieldLabel hint="as-is">GPA / grades</FieldLabel>
                           <input className={inputCls} value={p.gpa ?? ""} onChange={(e) => set("gpa", e.target.value)} placeholder="8.7/10 CGPA" />
                         </label>
                         <label>
@@ -417,7 +409,7 @@ export default function ProfilePage() {
                     {sec.id === "goals" && (
                       <div className="grid gap-4 md:grid-cols-2">
                         <label>
-                          <FieldLabel required>Target countries <span className="normal-case">(comma separated)</span></FieldLabel>
+                          <FieldLabel required hint="comma separated">Target countries</FieldLabel>
                           <input className={inputCls} value={(p.targetCountries ?? []).join(", ")} onChange={(e) => set("targetCountries", parseList(e.target.value))} placeholder="Germany, Canada, remote" />
                         </label>
                         <label>
@@ -425,33 +417,33 @@ export default function ProfilePage() {
                           <input className={inputCls} value={p.deadlineWindow ?? ""} onChange={(e) => set("deadlineWindow", e.target.value)} placeholder="programs starting Fall 2027" />
                         </label>
                         <label>
-                          <FieldLabel>Languages <span className="normal-case">(comma separated)</span></FieldLabel>
+                          <FieldLabel hint="comma separated">Languages</FieldLabel>
                           <input className={inputCls} value={draftFor("languages")} onChange={(e) => setDrafts({ ...drafts, languages: e.target.value })} placeholder="English (fluent), French (A2)" />
                         </label>
                         <label>
-                          <FieldLabel>Interests <span className="normal-case">(comma separated)</span></FieldLabel>
+                          <FieldLabel hint="comma separated">Interests</FieldLabel>
                           <input className={inputCls} value={draftFor("interests")} onChange={(e) => setDrafts({ ...drafts, interests: e.target.value })} placeholder="open source, robotics, climate" />
                         </label>
                         <label className="md:col-span-2">
-                          <FieldLabel>Links <span className="normal-case">(LinkedIn / GitHub / portfolio)</span></FieldLabel>
+                          <FieldLabel hint="LinkedIn / GitHub / portfolio">Links</FieldLabel>
                           <input className={inputCls} value={draftFor("links")} onChange={(e) => setDrafts({ ...drafts, links: e.target.value })} placeholder="github.com/you, linkedin.com/in/you" />
                         </label>
                         <div className="flex gap-6 md:col-span-2">
-                          <label className="flex items-center gap-2.5 text-sm text-[--text-secondary]">
+                          <label className="flex items-center gap-2.5 text-[13px] text-[--text-secondary]">
                             <input
                               type="checkbox"
                               checked={Boolean(p.needsFullFunding)}
                               onChange={(e) => set("needsFullFunding", e.target.checked)}
-                              className="h-4 w-4 rounded border-[--border] bg-[--bg-base] accent-[--accent-primary]"
+                              className="h-3.5 w-3.5 rounded border-[--border] accent-[--accent-primary]"
                             />
                             I need fully-funded options only <span className="text-[--accent-danger]">*</span>
                           </label>
-                          <label className="flex items-center gap-2.5 text-sm text-[--text-secondary]">
+                          <label className="flex items-center gap-2.5 text-[13px] text-[--text-secondary]">
                             <input
                               type="checkbox"
                               checked={Boolean(p.remoteOnly)}
                               onChange={(e) => set("remoteOnly", e.target.checked)}
-                              className="h-4 w-4 rounded border-[--border] bg-[--bg-base] accent-[--accent-primary]"
+                              className="h-3.5 w-3.5 rounded border-[--border] accent-[--accent-primary]"
                             />
                             Remote-only internships
                           </label>
@@ -462,7 +454,7 @@ export default function ProfilePage() {
                     {sec.id === "experience" && (
                       <div className="space-y-4">
                         <label>
-                          <FieldLabel>Experience <span className="normal-case">(jobs, projects, volunteering — one per line)</span></FieldLabel>
+                          <FieldLabel hint="one per line">Experience</FieldLabel>
                           <textarea
                             className={`${inputCls} h-28`}
                             value={draftFor("experience")}
@@ -471,7 +463,7 @@ export default function ProfilePage() {
                           />
                         </label>
                         <label>
-                          <FieldLabel>Achievements <span className="normal-case">(awards, publications, competitions)</span></FieldLabel>
+                          <FieldLabel hint="awards, publications, competitions">Achievements</FieldLabel>
                           <textarea
                             className={`${inputCls} h-24`}
                             value={draftFor("achievements")}
@@ -485,7 +477,7 @@ export default function ProfilePage() {
                     {sec.id === "extra" && (
                       <div className="space-y-4">
                         <label>
-                          <FieldLabel>Constraints <span className="normal-case">(visa, money, relocation limits…)</span></FieldLabel>
+                          <FieldLabel hint="visa, money, relocation limits…">Constraints</FieldLabel>
                           <textarea
                             className={`${inputCls} h-20`}
                             value={p.constraints ?? ""}
@@ -512,20 +504,19 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* save button */}
-      <div className="sticky bottom-4 mt-8 flex flex-col items-end gap-2">
+      <div className="sticky bottom-6 mt-10 flex flex-col items-end gap-2.5">
         {!requiredFieldsMet ? (
-          <span className="text-xs text-[--text-muted]">
+          <span className="text-[12px] text-[--text-muted]">
             Fill required fields: {missingRequired.map((f) => f.label).join(", ")}
           </span>
         ) : null}
         <button
           onClick={save}
           disabled={!requiredFieldsMet}
-          className="rounded-xl bg-[--accent-primary] px-7 py-3 text-sm font-bold text-white shadow-xl shadow-[--accent-primary]/25 transition-all hover:bg-[--accent-primary-light] hover:shadow-[--accent-primary]/30 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="rounded-full bg-[--accent-primary] px-8 py-2.5 text-[14px] font-medium text-white transition-colors hover:bg-[--accent-primary-light] disabled:opacity-30 disabled:cursor-not-allowed"
           style={{ fontFamily: "var(--font-display)" }}
         >
-          Save profile & meet your agent →
+          Save & meet your agent →
         </button>
       </div>
     </div>

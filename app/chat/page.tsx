@@ -14,10 +14,10 @@ type Health = { ok: boolean; model: string; hasKey: boolean; llmOk?: boolean; ke
 type Msg = { id: string; role: "user" | "assistant"; text: string; tools: ToolEvent[] };
 
 const SUGGESTIONS = [
-  { icon: "🔬", label: "Full deep scan", desc: "Scholarships + internships matched to your profile" },
-  { icon: "🎓", label: "Scholarships only", desc: "Focus on funding opportunities" },
-  { icon: "💼", label: "Internships only", desc: "Find work experiences and placements" },
-  { icon: "💬", label: "Ask me first", desc: "I haven't filled my profile — ask the key questions" },
+  { label: "Full deep scan", desc: "Scholarships + internships matched to your profile" },
+  { label: "Scholarships only", desc: "Focus on funding opportunities" },
+  { label: "Internships only", desc: "Find work experiences and placements" },
+  { label: "Ask me first", desc: "I haven't filled my profile — ask the key questions" },
 ];
 
 let idCounter = 0;
@@ -200,75 +200,66 @@ export default function ChatPage() {
   const hasProfile = Object.keys(profile).length > 0;
 
   return (
-    <div className="mx-auto flex h-[calc(100vh-10rem)] max-w-4xl flex-col">
-      {/* health / profile bars */}
+    <div className="mx-auto flex h-[calc(100vh-10rem)] max-w-3xl flex-col">
       {health && !health.hasKey ? (
-        <div className="mb-3 rounded-xl border border-[--accent-danger]/30 bg-[--accent-danger]/5 p-3 text-sm text-[--accent-danger]">
-          No LLM API keys found — the agent can&apos;t think. Set GROQ_API_KEY or GOOGLE_API_KEY in
-          your Vercel environment variables.
+        <div className="mb-3 rounded-lg border border-[--accent-danger]/20 bg-[--accent-danger]/5 p-3 text-[13px] text-[--accent-danger]">
+          No LLM API keys found — set GROQ_API_KEY or GOOGLE_API_KEY in your Vercel environment variables.
         </div>
       ) : null}
       {health?.hasKey && health.llmOk === false ? (
-        <div className="mb-3 rounded-xl border border-[--accent-gold]/30 bg-[--accent-gold]/5 p-3 text-sm text-[--accent-gold]">
-          API keys are set but the LLM backends are not responding. Check your keys are valid and
-          not rate-limited.
+        <div className="mb-3 rounded-lg border border-[--accent-gold]/20 bg-[--accent-gold]/5 p-3 text-[13px] text-[--accent-gold]">
+          API keys are set but the LLM backends are not responding. Check your keys are valid and not rate-limited.
         </div>
       ) : null}
       {health?.llmOk ? (
-        <div className="mb-3 flex flex-wrap items-center gap-2 text-[11px] text-[--text-muted]">
-          <span className="rounded-full bg-[--accent-success]/10 px-2.5 py-0.5 text-[--accent-success]">
-            Dr Scholar · ready
-          </span>
-          {health.extras.tavily ? (
-            <span className="rounded-full bg-[--bg-surface] px-2.5 py-0.5">Tavily ✓</span>
-          ) : null}
+        <div className="mb-3 flex items-center gap-2 text-[11px] text-[--text-muted]">
+          <span className="h-1.5 w-1.5 rounded-full bg-[--accent-success]" />
+          Ready
+          {health.extras.tavily ? <span className="text-[--text-muted]">· Tavily</span> : null}
         </div>
       ) : null}
       {!hasProfile ? (
-        <div className="mb-3 rounded-xl border border-[--accent-gold]/30 bg-[--accent-gold]/5 p-3 text-sm text-[--accent-gold]">
+        <div className="mb-3 rounded-lg border border-[--border] bg-[--bg-surface] p-3 text-[13px] text-[--text-secondary]">
           No profile yet — the agent will ask you a few questions, or{" "}
-          <Link href="/" className="font-semibold underline">
-            build your profile first →
+          <Link href="/" className="font-medium text-[--text-primary] underline decoration-[--border] underline-offset-2 hover:decoration-[--text-muted]">
+            build your profile first
           </Link>
         </div>
       ) : (
-        <div className="mb-3 flex items-center justify-between rounded-xl border border-[--border] bg-[--bg-surface] px-3.5 py-2 text-xs text-[--text-muted]">
+        <div className="mb-3 flex items-center justify-between rounded-lg border border-[--border] bg-[--bg-surface] px-3.5 py-2 text-[12px] text-[--text-muted]">
           <span>
             <strong className="text-[--text-primary]">{profile.fullName || "You"}</strong> · {(profile.level ?? "level?").replace(/_/g, " ")} ·{" "}
             {profile.field ?? "field?"}{profile.citizenship ? ` · ${profile.citizenship}` : ""}
           </span>
-          <Link href="/" className="text-[--accent-primary-light] underline decoration-[--accent-primary]/30 hover:decoration-[--accent-primary]">
+          <Link href="/" className="text-[--text-muted] underline decoration-[--border] underline-offset-2 hover:text-[--text-primary] hover:decoration-[--text-muted]">
             edit
           </Link>
         </div>
       )}
 
-      {/* messages area */}
-      <div className="flex-1 space-y-4 overflow-y-auto rounded-xl border border-[--border] bg-[--bg-surface]/50 p-4">
+      <div className="flex-1 space-y-5 overflow-y-auto py-4">
         {msgs.length === 0 ? (
-          <div className="py-8 text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[--accent-primary] to-[--accent-primary-light] text-2xl text-white shadow-xl shadow-[--accent-primary]/20">
+          <div className="py-12 text-center">
+            <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-[--accent-primary] text-[15px] font-bold text-white">
               DS
             </div>
-            <h2 className="text-xl font-bold text-[--text-primary]" style={{ fontFamily: "var(--font-display)" }}>
-              Dr Scholar is ready
+            <h2 className="text-lg font-semibold tracking-tight text-[--text-primary]" style={{ fontFamily: "var(--font-display)" }}>
+              Dr Scholar
             </h2>
-            <p className="mx-auto mt-2 max-w-md text-sm text-[--text-secondary]">
-              I deep-research real scholarships &amp; internships matched to YOUR profile, verify
-              deadlines on official pages, and hand you an apply-plan. Pick a starting point:
+            <p className="mx-auto mt-2 max-w-md text-[13px] leading-relaxed text-[--text-secondary]">
+              I deep-research real scholarships &amp; internships matched to your profile, verify deadlines on official pages, and hand you an apply-plan.
             </p>
-            <div className="mx-auto mt-6 grid max-w-lg grid-cols-2 gap-3">
+            <div className="mx-auto mt-8 grid max-w-md grid-cols-2 gap-2">
               {SUGGESTIONS.map((s) => (
                 <button
                   key={s.label}
                   onClick={() => send(s.label === "Ask me first" ? s.desc : `Do a full ${s.label.toLowerCase()} for me`)}
-                  className="group rounded-xl border border-[--border] bg-[--bg-surface] p-4 text-left transition-all hover:border-[--accent-primary]/40 hover:bg-[--bg-surface-hover] hover:shadow-lg hover:shadow-[--accent-primary]/5"
+                  className="rounded-xl border border-[--border] p-4 text-left transition-colors hover:border-[--text-muted]/30 hover:bg-[--bg-surface]"
                 >
-                  <span className="text-xl">{s.icon}</span>
-                  <p className="mt-2 text-sm font-semibold text-[--text-primary]" style={{ fontFamily: "var(--font-display)" }}>
+                  <p className="text-[13px] font-medium text-[--text-primary]" style={{ fontFamily: "var(--font-display)" }}>
                     {s.label}
                   </p>
-                  <p className="mt-0.5 text-xs text-[--text-muted]">{s.desc}</p>
+                  <p className="mt-1 text-[12px] leading-relaxed text-[--text-muted]">{s.desc}</p>
                 </button>
               ))}
             </div>
@@ -278,17 +269,17 @@ export default function ChatPage() {
         {msgs.map((m) =>
           m.role === "user" ? (
             <div key={m.id} className="flex justify-end">
-              <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-gradient-to-br from-[--accent-primary] to-[#4F46E5] px-4 py-2.5 text-sm text-white shadow-md shadow-[--accent-primary]/10">
+              <div className="max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-[--accent-primary] px-4 py-2.5 text-[13px] leading-relaxed text-white">
                 {m.text}
               </div>
             </div>
           ) : (
-            <div key={m.id} className="w-full space-y-1.5">
+            <div key={m.id} className="w-full space-y-2">
               {m.tools.map((ev, i) => (
                 <ToolChip key={i} ev={ev} />
               ))}
               {m.text.trim() ? (
-                <div className="rounded-xl border-l-2 border-[--accent-primary]/20 pl-4">
+                <div className="pl-1">
                   <MiniMarkdown text={m.text} />
                 </div>
               ) : null}
@@ -297,21 +288,19 @@ export default function ChatPage() {
         )}
 
         {busy ? (
-          <div className="flex items-center gap-2 text-sm text-[--text-muted]">
-            <span className="pulse-dot h-2 w-2 rounded-full bg-[--accent-primary]" />
+          <div className="flex items-center gap-2 text-[13px] text-[--text-muted]">
+            <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-[--accent-primary]" />
             <span>Thinking…</span>
           </div>
         ) : null}
         <div ref={bottomRef} />
       </div>
 
-      {/* error */}
       {error ? (
-        <div className="mt-2 rounded-lg bg-[--accent-danger]/10 p-3 text-sm text-[--accent-danger]">{error}</div>
+        <div className="mb-2 rounded-lg bg-[--accent-danger]/5 p-3 text-[13px] text-[--accent-danger]">{error}</div>
       ) : null}
 
-      {/* input area */}
-      <div className="mt-3 flex items-end gap-2">
+      <div className="mt-2 flex items-end gap-2">
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -321,15 +310,15 @@ export default function ChatPage() {
               send(input);
             }
           }}
-          placeholder="Ask anything: 'find me internships for next summer', 'am I eligible for DAAD?', …"
+          placeholder="Ask anything…"
           rows={2}
           disabled={busy}
-          className="flex-1 resize-none rounded-xl border border-[--border] bg-[--bg-surface] px-4 py-3 text-sm text-[--text-primary] placeholder-[--text-muted] outline-none transition-colors focus:border-[--accent-primary] focus:ring-1 focus:ring-[--accent-primary]/30 disabled:opacity-50"
+          className="flex-1 resize-none rounded-xl border border-[--border] bg-white px-4 py-3 text-[13px] text-[--text-primary] placeholder-[--text-muted] outline-none transition-colors focus:border-[--accent-primary] focus:ring-1 focus:ring-[--accent-primary]/10 disabled:opacity-50"
         />
         {busy ? (
           <button
             onClick={stop}
-            className="rounded-xl bg-[--bg-surface] border border-[--border] px-5 py-3 text-sm font-semibold text-[--text-primary] transition-colors hover:bg-[--accent-danger]/10 hover:border-[--accent-danger]/30 hover:text-[--accent-danger]"
+            className="rounded-xl border border-[--border] bg-white px-5 py-3 text-[13px] font-medium text-[--text-primary] transition-colors hover:bg-[--bg-surface]"
           >
             Stop
           </button>
@@ -337,20 +326,19 @@ export default function ChatPage() {
           <button
             onClick={() => send(input)}
             disabled={!input.trim()}
-            className="rounded-xl bg-[--accent-primary] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-[--accent-primary]/20 transition-all hover:bg-[--accent-primary-light] disabled:opacity-40"
+            className="rounded-xl bg-[--accent-primary] px-5 py-3 text-[13px] font-medium text-white transition-colors hover:bg-[--accent-primary-light] disabled:opacity-30"
           >
-            Send ↵
+            Send
           </button>
         )}
       </div>
 
-      {/* footer hints */}
-      <div className="mt-2 flex items-center justify-between text-[11px] text-[--text-muted]">
-        <span>Enter to send · Shift+Enter for newline · deep scans may take a few minutes</span>
+      <div className="mt-2.5 flex items-center justify-between text-[11px] text-[--text-muted]">
+        <span>Enter to send · Shift+Enter for newline</span>
         <button
           onClick={downloadReport}
           disabled={!msgs.some((m) => m.role === "assistant" && m.text.trim())}
-          className="rounded-md border border-[--border] px-2.5 py-1 text-[--text-muted] transition-colors hover:border-[--accent-primary] hover:text-[--text-primary] disabled:opacity-30"
+          className="text-[--text-muted] underline decoration-[--border] underline-offset-2 hover:text-[--text-primary] hover:decoration-[--text-muted] disabled:opacity-30 disabled:no-underline"
         >
           Download report (.md)
         </button>

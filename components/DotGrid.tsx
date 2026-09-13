@@ -2,11 +2,12 @@
 
 import { useEffect, useRef } from "react";
 
-const SPACING = 20;
-const BASE_RADIUS = 0.75;
-const HOVER_RADIUS = 1.5;
-const BASE_COLOR = "#D6D3D1";
-const INFLUENCE = 120;
+const SPACING = 22;
+const BASE_RADIUS = 1.2;
+const HOVER_RADIUS = 3.0;
+const BASE_COLOR = "#A8A29E";
+const HOVER_COLOR = "#292524";
+const INFLUENCE = 160;
 
 export default function DotGrid() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -44,9 +45,15 @@ export default function DotGrid() {
           if (dist < INFLUENCE) {
             const t = 1 - dist / INFLUENCE;
             const radius = BASE_RADIUS + (HOVER_RADIUS - BASE_RADIUS) * t;
-            const r = Math.round(214 + (168 - 214) * t);
-            const g = Math.round(211 + (162 - 211) * t);
-            const b = Math.round(209 + (158 - 209) * t);
+            const br = parseInt(BASE_COLOR.slice(1, 3), 16);
+            const bg = parseInt(BASE_COLOR.slice(3, 5), 16);
+            const bb = parseInt(BASE_COLOR.slice(5, 7), 16);
+            const hr = parseInt(HOVER_COLOR.slice(1, 3), 16);
+            const hg = parseInt(HOVER_COLOR.slice(3, 5), 16);
+            const hb = parseInt(HOVER_COLOR.slice(5, 7), 16);
+            const r = Math.round(br + (hr - br) * t);
+            const g = Math.round(bg + (hg - bg) * t);
+            const b = Math.round(bb + (hb - bb) * t);
             ctx.fillStyle = `rgb(${r},${g},${b})`;
             ctx.beginPath();
             ctx.arc(x, y, radius, 0, Math.PI * 2);

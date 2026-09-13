@@ -132,9 +132,17 @@ export async function POST(req: Request) {
             const err = e as Error;
             if (err.message !== "aborted" && !req.signal.aborted) {
               console.warn(`[chat] streamTurn failed at step ${step}:`, err.message);
-              send({ t: "error", message: err.message || "model request failed" });
+              // If tools already ran, compose a fallback from tool results
+              const toolMsgs = messages.filter((m) => m.text.startsWith("[tool result for"));
+              if (toolMsgs.length > 0) {
+                const fallback = "I completed the research but hit an API rate limit while generating the summary. Here are the raw findings:\n\n" +
+                  toolMsgs.map((m) => m.text).join("\n\n");
+                send({ t: "delta", v: fallback });
+              } else {
+                send({ t: "error", message: err.message || "model request failed" });
+              }
             }
-            return;
+            break;
           }
 
           if (turn.text.trim()) {

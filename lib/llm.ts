@@ -131,18 +131,22 @@ function normalizeSchema(obj: unknown): unknown {
   return out;
 }
 
-/** Try a provider call with retry on rate-limit (max 2 attempts, 2s delay). */
-async function withRetry<T>(fn: () => Promise<T>, label: string): Promise<T> {
-  try {
-    return await fn();
-  } catch (err: unknown) {
-    if (isRateLimit(err)) {
-      console.warn(`[llm] ${label} rate-limited, retrying in 2s…`);
-      await sleep(2000);
+/** Try a provider call with exponential backoff on rate-limit (5s, 10s, 20s — 3 retries). */
+async function withRetry<T>(fn: () => Promise<T>, label: string, maxRetries = 3): Promise<T> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
       return await fn();
+    } catch (err: unknown) {
+      if (isRateLimit(err) && attempt < maxRetries) {
+        const delay = 5000 * Math.pow(2, attempt);
+        console.warn(`[llm] ${label} rate-limited (attempt ${attempt + 1}), retrying in ${delay / 1000}s…`);
+        await sleep(delay);
+      } else {
+        throw err;
+      }
     }
-    throw err;
   }
+  throw new Error("unreachable");
 }
 
 /** Fetch with a timeout to prevent hanging connections. */
@@ -175,8 +179,8 @@ export async function streamTurn(
   // Try the full cascade up to 2 times (global retry for transient failures)
   for (let attempt = 0; attempt < 2; attempt++) {
     if (attempt > 0) {
-      console.warn("[llm] all providers failed, retrying entire cascade in 3s…");
-      await sleep(3000);
+      console.warn("[llm] all providers failed, retrying entire cascade in 15s…");
+      await sleep(15_000);
     }
 
     // try groq first (Qwen primary)

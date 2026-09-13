@@ -192,7 +192,7 @@ export default function ChatPage() {
           </Link>
         </div>
       ) : (
-        <div className="mb-3 flex items-center justify-between border-2 border-[--border-strong] bg-[--bg-content] px-4 py-2.5 text-[12px] text-[--text-muted]">
+        <div className="mb-3 flex items-center justify-between border-2 border-[--border-strong] bg-[--bg-content] px-4 py-2.5 text-[12px] text-[--text-secondary]">
           <span>
             <strong className="text-[--text-primary]">{profile.fullName || "You"}</strong> · {(profile.level ?? "level?").replace(/_/g, " ")} ·{" "}
             {profile.field ?? "field?"}{profile.citizenship ? ` · ${profile.citizenship}` : ""}
@@ -224,7 +224,7 @@ export default function ChatPage() {
                 <button
                   key={s.label}
                   onClick={() => send(s.label === "Ask me first" ? s.desc : `Do a full ${s.label.toLowerCase()} for me`)}
-                  className="border-2 border-[--border-strong] bg-[--bg-content] p-5 text-left transition-colors hover:border-[--accent-primary] hover:bg-[--bg-surface]"
+                  className="rounded-xl border-2 border-[--border-strong] bg-[--bg-content] p-5 text-left transition-colors hover:border-[--accent-primary] hover:bg-[--bg-surface]"
                 >
                   <p className="text-[11px] font-bold text-[--text-primary]" style={{ fontFamily: "var(--font-display)" }}>
                     {s.label}
@@ -240,12 +240,12 @@ export default function ChatPage() {
           {msgs.map((m) =>
             m.role === "user" ? (
               <div key={m.id} className="flex justify-end">
-                <div className="max-w-[80%] whitespace-pre-wrap bg-[--accent-primary] px-4 py-2.5 text-[13px] leading-relaxed text-white">
+                <div className="max-w-[80%] whitespace-pre-wrap rounded-2xl bg-[--accent-primary] px-4 py-2.5 text-[13px] leading-relaxed text-white">
                   {m.text}
                 </div>
               </div>
             ) : (
-              <div key={m.id} className="w-full space-y-2 rounded-xl bg-[#EDEBE8] px-5 py-4">
+              <div key={m.id} className="w-full space-y-2 rounded-xl bg-[#E7E5E4] px-5 py-4 text-[--text-primary]">
                 {m.tools.map((ev, i) => (
                   <ToolChip key={i} ev={ev} />
                 ))}
@@ -277,11 +277,11 @@ export default function ChatPage() {
 
       {/* Error */}
       {error ? (
-        <div className="mb-2 bg-[--accent-danger]/5 p-3 text-[12px] text-[--accent-danger]">{error}</div>
+        <div className="mb-2 rounded-lg border border-[--accent-danger]/20 bg-[--accent-danger]/5 p-3 text-[12px] text-[--accent-danger]">{error}</div>
       ) : null}
 
       {/* Input */}
-      <div className="flex items-end gap-2 border-t-2 border-[--border-strong] pt-3">
+      <div className="flex items-end gap-2 border-t-2 border-[--border-strong] bg-[--bg-content] pt-3">
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -312,7 +312,7 @@ export default function ChatPage() {
       </div>
 
       {/* Footer */}
-      <div className="mt-3 flex items-center justify-between text-[11px] text-[--text-muted]">
+      <div className="mt-3 flex items-center justify-between bg-[--bg-content] text-[11px] text-[--text-muted]">
         <span>Enter to send · Shift+Enter for newline</span>
         <button
           onClick={downloadReport}

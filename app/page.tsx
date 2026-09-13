@@ -530,7 +530,7 @@ export default function ProfilePage() {
           )}
 
           {/* Save button */}
-          <div className="sticky bottom-0 mt-12 border-t-2 border-[--border-strong] bg-[--bg-base] pt-5 pb-5" style={{ background: "rgba(250, 250, 249, 0.95)" }}>
+          <div className="sticky bottom-0 mt-12 border-t border-[--border] bg-[--bg-content] pt-5 pb-5">
             <div className="flex items-center justify-between">
               {!requiredFieldsMet ? (
                 <span className="text-[11px] text-[--text-muted]">

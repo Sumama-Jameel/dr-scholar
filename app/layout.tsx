@@ -34,7 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </nav>
           </div>
         </header>
-        <main className="mx-auto max-w-7xl">{children}</main>
+        <main className="mx-auto max-w-7xl bg-[--bg-content]">{children}</main>
       </body>
     </html>
   );

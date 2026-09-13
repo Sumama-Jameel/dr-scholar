@@ -101,6 +101,26 @@ function mapFinish(r: string): "stop" | "tool_calls" | "length" | "error" {
   return "stop";
 }
 
+const TYPE_MAP: Record<string, string> = {
+  OBJECT: "object", STRING: "string", ARRAY: "array",
+  INTEGER: "integer", BOOLEAN: "boolean", NUMBER: "number",
+};
+
+/** Recursively lowercase all `type` values in a JSON Schema tree. */
+function normalizeSchema(obj: unknown): unknown {
+  if (typeof obj !== "object" || obj === null) return obj;
+  if (Array.isArray(obj)) return obj.map(normalizeSchema);
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+    if (k === "type" && typeof v === "string" && TYPE_MAP[v]) {
+      out[k] = TYPE_MAP[v];
+    } else {
+      out[k] = normalizeSchema(v);
+    }
+  }
+  return out;
+}
+
 /* ----------------------- groq (Qwen) ----------------------- */
 
 const GROQ_BASE = "https://api.groq.com/openai/v1";
@@ -158,7 +178,7 @@ async function groqStream(
       function: {
         name: t.name,
         description: t.description,
-        parameters: t.parameters,
+        parameters: normalizeSchema(t.parameters),
       },
     }));
     body.tool_choice = "auto";
@@ -321,7 +341,7 @@ async function geminiStream(
           description: t.description,
           parameters: {
             type: "object",
-            properties: t.parameters,
+            properties: normalizeSchema(t.parameters),
             ...(t.parameters.required ? { required: t.parameters.required } : {}),
           },
         },
@@ -467,11 +487,11 @@ function formatSchemaForPrompt(schema: Record<string, unknown>): string {
     const comma = i < entries.length - 1 ? "," : "";
     if (def.enum) {
       lines.push(`  "${key}": "one of: ${def.enum.join(", ")}${comma}`);
-    } else if (def.type === "ARRAY") {
+    } else if (def.type === "array") {
       lines.push(`  "${key}": "array of ${def.items?.type ?? "string"}s${comma}`);
-    } else if (def.type === "INTEGER") {
+    } else if (def.type === "integer") {
       lines.push(`  "${key}": "integer${comma}`);
-    } else if (def.type === "BOOLEAN") {
+    } else if (def.type === "boolean") {
       lines.push(`  "${key}": "boolean${comma}`);
     } else {
       lines.push(`  "${key}": "string${comma}`);
@@ -569,7 +589,7 @@ export async function generateJson(
             temperature,
             maxOutputTokens: 2048,
             responseMimeType: "application/json",
-            responseSchema: schema,
+            responseSchema: normalizeSchema(schema),
           },
         }),
       });

@@ -10,7 +10,7 @@ import {
   type ProfileInput,
 } from "@/lib/profile";
 
-type Health = { ok: boolean; model: string; hasKey: boolean; keySource?: string | null; extras: { tavily: boolean; adzuna: boolean; usajobs: boolean } };
+type Health = { ok: boolean; model: string; hasKey: boolean; llmOk?: boolean; keySource?: string | null; extras: { tavily: boolean; adzuna: boolean; usajobs: boolean } };
 type Msg = { id: string; role: "user" | "assistant"; text: string; tools: ToolEvent[] };
 
 const SUGGESTIONS = [
@@ -204,15 +204,17 @@ export default function ChatPage() {
       {/* health / profile bars */}
       {health && !health.hasKey ? (
         <div className="mb-3 rounded-xl border border-[--accent-danger]/30 bg-[--accent-danger]/5 p-3 text-sm text-[--accent-danger]">
-          No Gemini key found (looked for GEMINI_API_KEY / GOOGLE_API_KEY env vars) — the agent
-          can&apos;t think. Free key:{" "}
-          <a className="underline" href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">
-            aistudio.google.com/apikey
-          </a>{" "}
-          → then restart the app.
+          No LLM API keys found — the agent can&apos;t think. Set GROQ_API_KEY or GOOGLE_API_KEY in
+          your Vercel environment variables.
         </div>
       ) : null}
-      {health?.hasKey ? (
+      {health?.hasKey && health.llmOk === false ? (
+        <div className="mb-3 rounded-xl border border-[--accent-gold]/30 bg-[--accent-gold]/5 p-3 text-sm text-[--accent-gold]">
+          API keys are set but the LLM backends are not responding. Check your keys are valid and
+          not rate-limited.
+        </div>
+      ) : null}
+      {health?.llmOk ? (
         <div className="mb-3 flex flex-wrap items-center gap-2 text-[11px] text-[--text-muted]">
           <span className="rounded-full bg-[--accent-success]/10 px-2.5 py-0.5 text-[--accent-success]">
             Dr Scholar · ready

@@ -3,19 +3,19 @@ import { generateJson, llmBackends } from "@/lib/llm";
 import { ProfileSchema, type ProfileInput } from "@/lib/profile";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 300;
 export const dynamic = "force-dynamic";
 
-/** Gemini responseSchema (OpenAPI subset) mirroring ProfileSchema. */
+/** Gemini responseSchema (lowercase JSON Schema types) mirroring ProfileSchema. */
 const PROFILE_RESPONSE_SCHEMA = {
-  type: "OBJECT",
+  type: "object",
   properties: {
-    fullName: { type: "STRING" },
-    age: { type: "INTEGER" },
-    citizenship: { type: "STRING" },
-    residence: { type: "STRING" },
+    fullName: { type: "string" },
+    age: { type: "integer" },
+    citizenship: { type: "string" },
+    residence: { type: "string" },
     level: {
-      type: "STRING",
+      type: "string",
       enum: [
         "high_school",
         "undergraduate",
@@ -26,23 +26,23 @@ const PROFILE_RESPONSE_SCHEMA = {
         "other",
       ],
     },
-    field: { type: "STRING" },
-    fieldKeywords: { type: "ARRAY", items: { type: "STRING" } },
-    gpa: { type: "STRING" },
-    graduationYear: { type: "INTEGER" },
-    englishTests: { type: "STRING" },
-    otherTests: { type: "STRING" },
-    targetCountries: { type: "ARRAY", items: { type: "STRING" } },
-    remoteOnly: { type: "BOOLEAN" },
-    needsFullFunding: { type: "BOOLEAN" },
-    experience: { type: "ARRAY", items: { type: "STRING" } },
-    achievements: { type: "ARRAY", items: { type: "STRING" } },
-    interests: { type: "ARRAY", items: { type: "STRING" } },
-    languages: { type: "ARRAY", items: { type: "STRING" } },
-    links: { type: "ARRAY", items: { type: "STRING" } },
-    constraints: { type: "STRING" },
-    deadlineWindow: { type: "STRING" },
-    notes: { type: "STRING" },
+    field: { type: "string" },
+    fieldKeywords: { type: "array", items: { type: "string" } },
+    gpa: { type: "string" },
+    graduationYear: { type: "integer" },
+    englishTests: { type: "string" },
+    otherTests: { type: "string" },
+    targetCountries: { type: "array", items: { type: "string" } },
+    remoteOnly: { type: "boolean" },
+    needsFullFunding: { type: "boolean" },
+    experience: { type: "array", items: { type: "string" } },
+    achievements: { type: "array", items: { type: "string" } },
+    interests: { type: "array", items: { type: "string" } },
+    languages: { type: "array", items: { type: "string" } },
+    links: { type: "array", items: { type: "string" } },
+    constraints: { type: "string" },
+    deadlineWindow: { type: "string" },
+    notes: { type: "string" },
   },
 };
 

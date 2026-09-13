@@ -13,7 +13,7 @@ import type { ProfileInput } from "./profile";
 export type ToolArgs = Record<string, unknown>;
 export type ToolExecutor = (args: ToolArgs) => Promise<unknown>;
 
-/** Gemini function-calling declarations (OpenAPI subset, UPPERCASE types). */
+/** Tool function-calling declarations (lowercase JSON Schema types). */
 export const TOOL_DECLARATIONS: FunctionDeclaration[] = [
   {
     name: "deep_research",
@@ -24,17 +24,17 @@ export const TOOL_DECLARATIONS: FunctionDeclaration[] = [
       "official-program catalog. Budget <=110s per call, <=2 calls per reply. Always design " +
       "specific queries first (see skill file Phase 1).",
     parameters: {
-      type: "OBJECT",
+      type: "object",
       properties: {
-        kind: { type: "STRING", enum: ["scholarship", "internship"], description: "What to research" },
+        kind: { type: "string", enum: ["scholarship", "internship"], description: "What to research" },
         queries: {
-          type: "ARRAY",
-          items: { type: "STRING" },
+          type: "array",
+          items: { type: "string" },
           description:
             "4-8 specific search queries, e.g. 'fully funded masters scholarships Kenya students 2027 deadline'",
         },
-        time_budget_seconds: { type: "INTEGER", description: "Hard time budget; default 80, max 110" },
-        max_pages: { type: "INTEGER", description: "How many top results to deep-read; default 10" },
+        time_budget_seconds: { type: "integer", description: "Hard time budget; default 80, max 110" },
+        max_pages: { type: "integer", description: "How many top results to deep-read; default 10" },
       },
       required: ["kind", "queries"],
     },
@@ -45,10 +45,10 @@ export const TOOL_DECLARATIONS: FunctionDeclaration[] = [
       "Lightweight single web search (multi-engine with fallback). Use for one-off lookups; " +
       "use deep_research for the full sweep.",
     parameters: {
-      type: "OBJECT",
+      type: "object",
       properties: {
-        query: { type: "STRING", description: "Search query" },
-        max_results: { type: "INTEGER", description: "1-10 results, default 6" },
+        query: { type: "string", description: "Search query" },
+        max_results: { type: "integer", description: "1-10 results, default 6" },
       },
       required: ["query"],
     },
@@ -59,9 +59,9 @@ export const TOOL_DECLARATIONS: FunctionDeclaration[] = [
       "Reads ONE official page and extracts title, deadline, funding signals and an excerpt. " +
       "Use to verify deadline/eligibility of a top candidate (<=4 per reply).",
     parameters: {
-      type: "OBJECT",
+      type: "object",
       properties: {
-        url: { type: "STRING", description: "Exact URL from search results — never a guessed URL" },
+        url: { type: "string", description: "Exact URL from search results — never a guessed URL" },
       },
       required: ["url"],
     },
@@ -72,10 +72,10 @@ export const TOOL_DECLARATIONS: FunctionDeclaration[] = [
       "Live internship/job listings from free job APIs (Remotive, Arbeitnow, + Adzuna/USAJobs " +
       "if keys are configured). Keyless sources work out of the box.",
     parameters: {
-      type: "OBJECT",
+      type: "object",
       properties: {
-        keywords: { type: "STRING", description: "e.g. 'software engineering intern'" },
-        limit: { type: "INTEGER", description: "3-20 listings, default 12" },
+        keywords: { type: "string", description: "e.g. 'software engineering intern'" },
+        limit: { type: "integer", description: "3-20 listings, default 12" },
       },
     },
   },
@@ -85,10 +85,10 @@ export const TOOL_DECLARATIONS: FunctionDeclaration[] = [
       "Curated catalog of ~90 REAL programs (official URLs) matched to the student's country, " +
       "level and field. Use it when search engines fail, or as a guaranteed baseline shortlist.",
     parameters: {
-      type: "OBJECT",
+      type: "object",
       properties: {
-        kind: { type: "STRING", enum: ["scholarship", "internship"] },
-        limit: { type: "INTEGER", description: "1-20 entries, default 15" },
+        kind: { type: "string", enum: ["scholarship", "internship"] },
+        limit: { type: "integer", description: "1-20 entries, default 15" },
       },
       required: ["kind"],
     },
@@ -100,17 +100,17 @@ export const TOOL_DECLARATIONS: FunctionDeclaration[] = [
       "and returns a fit verdict (likely/possible/stretch) with reasons. Run AFTER research, " +
       "BEFORE the final report.",
     parameters: {
-      type: "OBJECT",
+      type: "object",
       properties: {
         items: {
-          type: "ARRAY",
+          type: "array",
           items: {
-            type: "OBJECT",
+            type: "object",
             properties: {
-              name: { type: "STRING" },
-              url: { type: "STRING" },
-              kind: { type: "STRING", enum: ["scholarship", "internship"] },
-              requirements: { type: "STRING", description: "Eligibility text you gathered for this program" },
+              name: { type: "string" },
+              url: { type: "string" },
+              kind: { type: "string", enum: ["scholarship", "internship"] },
+              requirements: { type: "string", description: "Eligibility text you gathered for this program" },
             },
             required: ["name", "url", "kind", "requirements"],
           },

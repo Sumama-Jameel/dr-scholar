@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const SPACING = 22;
 const BASE_RADIUS = 1.2;
@@ -9,12 +9,23 @@ const BASE_COLOR = "#A8A29E";
 const HOVER_COLOR = "#292524";
 const INFLUENCE = 160;
 
+function isMobile() {
+  if (typeof window === "undefined") return true;
+  return "ontouchstart" in window || navigator.maxTouchPoints > 0 || window.innerWidth < 768;
+}
+
 export default function DotGrid() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mouse = useRef({ x: -9999, y: -9999 });
   const raf = useRef(0);
+  const [mobile, setMobile] = useState(true);
 
   useEffect(() => {
+    setMobile(isMobile());
+  }, []);
+
+  useEffect(() => {
+    if (mobile) return;
     const cvs = canvasRef.current!;
     const ctx = cvs.getContext("2d")!;
 
@@ -88,7 +99,9 @@ export default function DotGrid() {
       window.removeEventListener("mousemove", onMove);
       cancelAnimationFrame(raf.current);
     };
-  }, []);
+  }, [mobile]);
+
+  if (mobile) return null;
 
   return (
     <canvas

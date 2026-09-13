@@ -32,6 +32,8 @@ html {
 body {
   font-family: var(--font-body);
   background-color: var(--bg-base);
+  background-image: radial-gradient(circle, #A8A29E 1.2px, transparent 1.2px);
+  background-size: 22px 22px;
   min-height: 100vh;
   color: var(--text-secondary);
   -webkit-font-smoothing: antialiased;

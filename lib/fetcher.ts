@@ -25,6 +25,17 @@ export async function fetchText(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
+    // Only allow http/https targets (model-supplied URLs; blocks file:, ftp:,
+    // data:, javascript: and other schemes serverless would mis-handle anyway).
+    let u: URL;
+    try {
+      u = new URL(url);
+    } catch {
+      return { url, finalUrl: url, status: 0, title: "", text: "", error: "invalid URL" };
+    }
+    if (u.protocol !== "http:" && u.protocol !== "https:") {
+      return { url, finalUrl: url, status: 0, title: "", text: "", error: `scheme ${u.protocol} not allowed` };
+    }
     const res = await fetch(url, {
       signal: controller.signal,
       redirect: "follow",

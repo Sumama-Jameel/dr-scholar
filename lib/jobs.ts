@@ -106,6 +106,28 @@ export async function arbeitnowJobs(limit = 15): Promise<JobHit[]> {
   }
 }
 
+/** Profile fields hold full country names ("Germany", "Pakistan") but the Adzuna
+ *  API wants ISO-3166-1 alpha-2 codes ("de", "pk"). Map the common ones and let
+ *  unknown values fall back to "us". */
+const ADZUNA_COUNTRY: Record<string, string> = {
+  us: "us", usa: "us", "united states": "us", "united states of america": "us",
+  uk: "gb", "united kingdom": "gb", england: "gb", britain: "gb", scotland: "gb",
+  germany: "de", france: "fr", italy: "it", spain: "es", portugal: "pt", greece: "gr",
+  netherlands: "nl", belgium: "be", switzerland: "ch", austria: "at", poland: "pl",
+  ireland: "ie", sweden: "se", norway: "no", denmark: "dk", finland: "fi",
+  canada: "ca", australia: "au", "new zealand": "nz", india: "in", japan: "jp",
+  "south korea": "kr", korea: "kr", china: "cn", singapore: "sg", brazil: "br",
+  mexico: "mx", turkey: "tr", uae: "ae", "saudi arabia": "sa", israel: "il",
+  egypt: "eg", kenya: "ke", nigeria: "ng", ghana: "gh", "south africa": "za",
+  pakistan: "pk", bangladesh: "bd", "sri lanka": "lk", nepal: "np", malaysia: "my",
+  indonesia: "id", vietnam: "vn", thailand: "th", philippines: "ph",
+};
+
+function adzunaCountry(country: string | undefined): string {
+  const c = (country ?? "").trim().toLowerCase();
+  return ADZUNA_COUNTRY[c] ?? "us";
+}
+
 /** Adzuna — optional free key (https://developer.adzuna.com). */
 export async function adzunaJobs(
   keywords = "internship",
@@ -117,7 +139,7 @@ export async function adzunaJobs(
   if (!appId || !apiKey) return [];
   try {
     return await withTimeout(async (signal) => {
-      const cc = (country || "us").toLowerCase().slice(0, 2);
+      const cc = adzunaCountry(country);
       const url =
         `https://api.adzuna.com/v1/api/jobs/${cc}/search/1` +
         `?app_id=${encodeURIComponent(appId)}&app_key=${encodeURIComponent(apiKey)}` +

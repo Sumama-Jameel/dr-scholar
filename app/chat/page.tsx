@@ -176,7 +176,8 @@ export default function ChatPage() {
     a.href = url;
     a.download = `dr-scholar-report-${new Date().toISOString().slice(0, 10)}.md`;
     a.click();
-    URL.revokeObjectURL(url);
+    // Revoking immediately can cancel the download before the browser starts it.
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
   }
 
   const hasProfile = Object.keys(profile).length > 0;

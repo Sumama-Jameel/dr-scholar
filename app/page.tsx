@@ -244,7 +244,7 @@ export default function ProfilePage() {
   return (
     <div className="flex min-h-[calc(100vh-3.5rem)]">
       {/* Sidebar */}
-      <aside className="w-64 shrink-0 border-r-2 border-(--border-strong) bg-(--bg-content)">
+      <aside className="hidden w-64 shrink-0 border-r-2 border-(--border-strong) bg-(--bg-content) lg:flex">
         <div className="sticky top-14 flex h-[calc(100vh-3.5rem)] flex-col">
           {/* Section nav */}
           <nav className="flex-1 overflow-y-auto p-4">
@@ -314,8 +314,28 @@ export default function ProfilePage() {
               Build your student profile
             </h1>
             <p className="mt-3 text-[14px] leading-relaxed text-(--text-secondary)">
-              Everything stays in your browser. The agent uses it to personalize research — fill what you can, it asks for anything critical that&apos;s missing.
+              Everything stays in your browser. The agent uses it to personalize research — fill what you can, it asks for anything critical that's missing.
             </p>
+            {/* Mobile section switcher (the sidebar is hidden below lg) */}
+            <label className="mt-4 flex items-center gap-2 text-[12px] text-(--text-secondary) lg:hidden">
+              <span className="shrink-0 text-[10px] uppercase tracking-widest text-(--text-muted)">Section</span>
+              <select
+                value={tab === "form" ? (openSection ?? "personal") : "doc"}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === "doc") setTab("doc");
+                  else { setTab("form"); setOpenSection(v as SectionId); }
+                }}
+                className={`${inputCls} flex-1`}
+              >
+                {SECTIONS.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.num} · {s.label}
+                  </option>
+                ))}
+                <option value="doc">05 · Parse from document</option>
+              </select>
+            </label>
           </div>
 
           {tab === "doc" ? (

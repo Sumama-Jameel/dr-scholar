@@ -22,27 +22,27 @@ const LEVELS: { value: string; label: string }[] = [
 ];
 
 const inputCls =
-  "w-full rounded-lg border border-[--border] bg-white px-3.5 py-2 text-[13px] text-[--text-primary] placeholder-[--text-muted] outline-none transition-colors focus:border-[--accent-primary] focus:ring-1 focus:ring-[--accent-primary]/10";
+  "w-full rounded border border-[--border] bg-[--bg-content] px-3 py-2 text-[13px] text-[--text-primary] placeholder-[--text-muted] outline-none transition-colors focus:border-[--accent-primary] focus:ring-1 focus:ring-[--accent-primary]/10";
 
 function FieldLabel({ children, hint, required }: { children: React.ReactNode; hint?: string; required?: boolean }) {
   return (
     <span className="mb-1.5 flex items-baseline gap-2">
-      <span className="text-[13px] font-medium text-[--text-primary]">
-        {children}{required ? <span className="text-[--accent-danger] ml-0.5">*</span> : null}
+      <span className="text-[11px] font-semibold uppercase tracking-wider text-[--text-muted]">
+        {children}{required ? <span className="text-[--accent-primary] ml-0.5">*</span> : null}
       </span>
-      {hint ? <span className="text-[11px] text-[--text-muted]">{hint}</span> : null}
+      {hint ? <span className="text-[10px] normal-case tracking-normal text-[--text-muted]/70">{hint}</span> : null}
     </span>
   );
 }
 
 type SectionId = "personal" | "academic" | "goals" | "experience" | "extra";
 
-const SECTIONS: { id: SectionId; label: string; icon: string }[] = [
-  { id: "personal", label: "Personal info", icon: "👤" },
-  { id: "academic", label: "Academic background", icon: "🎓" },
-  { id: "goals", label: "Goals & preferences", icon: "🎯" },
-  { id: "experience", label: "Experience & achievements", icon: "💼" },
-  { id: "extra", label: "Additional notes", icon: "📝" },
+const SECTIONS: { id: SectionId; label: string; num: string }[] = [
+  { id: "personal", label: "Personal info", num: "01" },
+  { id: "academic", label: "Academic background", num: "02" },
+  { id: "goals", label: "Goals & preferences", num: "03" },
+  { id: "experience", label: "Experience & achievements", num: "04" },
+  { id: "extra", label: "Additional notes", num: "05" },
 ];
 
 function sectionStatus(id: SectionId, p: ProfileInput): "complete" | "partial" | "empty" {
@@ -63,26 +63,12 @@ function sectionStatus(id: SectionId, p: ProfileInput): "complete" | "partial" |
   return "partial";
 }
 
-function ChevronIcon({ open }: { open: boolean }) {
-  return (
-    <svg
-      className={`h-4 w-4 text-[--text-muted] transition-transform duration-150 ${open ? "rotate-90" : ""}`}
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      strokeWidth={1.5}
-    >
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-    </svg>
-  );
-}
-
-function StatusDot({ status }: { status: "complete" | "partial" | "empty" }) {
+function StatusIndicator({ status }: { status: "complete" | "partial" | "empty" }) {
   if (status === "complete")
-    return <span className="flex h-5 w-5 items-center justify-center text-[11px] text-[--accent-success]">✓</span>;
+    return <span className="text-[--accent-success] text-[10px]">✓</span>;
   if (status === "partial")
     return <span className="h-1.5 w-1.5 rounded-full bg-[--accent-gold]" />;
-  return <span className="h-1.5 w-1.5 rounded-full bg-[--border]" />;
+  return <span className="h-1.5 w-1.5 rounded-full bg-[--border-strong]" />;
 }
 
 export default function ProfilePage() {
@@ -147,7 +133,6 @@ export default function ProfilePage() {
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f) return;
-
     const ext = f.name.split(".").pop()?.toLowerCase() ?? "";
 
     if (ext === "pdf" || f.type === "application/pdf") {
@@ -156,14 +141,13 @@ export default function ProfilePage() {
         const arrayBuf = await f.arrayBuffer();
         const text = await extractPdfText(arrayBuf);
         if (!text.trim()) {
-          setParseMsg({ ok: false, text: "This PDF has no extractable text — it may be a scanned/image PDF. Try a text-based PDF or paste the content manually." });
+          setParseMsg({ ok: false, text: "This PDF has no extractable text — try a text-based PDF or paste manually." });
           return;
         }
-        const sliced = text.slice(0, 20000);
-        setDocText(sliced);
+        setDocText(text.slice(0, 20000));
         const kb = Math.round(text.length / 1024);
         const warn = text.length > 20000 ? ` (truncated from ${kb} KB to 20 KB)` : ` (${kb} KB)`;
-        setParseMsg({ ok: true, text: `Extracted ${warn} from "${f.name}" — hit Parse.` });
+        setParseMsg({ ok: true, text: `Extracted${warn} from "${f.name}" — hit Parse.` });
       } catch (err) {
         setParseMsg({ ok: false, text: `Failed to read PDF: ${(err as Error).message}` });
       }
@@ -173,13 +157,12 @@ export default function ProfilePage() {
     const validExts = ["md", "txt", "json", "csv"];
     const validTypes = ["text/plain", "text/markdown", "text/csv", "application/json", ""];
     if (!validExts.includes(ext) && !validTypes.includes(f.type)) {
-      setParseMsg({ ok: false, text: `Unsupported file type ".${ext}" — upload a .pdf, .md, .txt, .csv, or .json file.` });
+      setParseMsg({ ok: false, text: `Unsupported file type ".${ext}" — upload .pdf, .md, .txt, .csv, or .json.` });
       return;
     }
 
     const text = await f.text();
-    const sliced = text.slice(0, 20000);
-    setDocText(sliced);
+    setDocText(text.slice(0, 20000));
     const kb = Math.round(text.length / 1024);
     const warn = text.length > 20000 ? ` (truncated from ${kb} KB to 20 KB)` : ` (${kb} KB)`;
     setParseMsg({ ok: true, text: `Loaded "${f.name}"${warn} — hit Parse.` });
@@ -221,7 +204,6 @@ export default function ProfilePage() {
 
       setParseMsg({ ok: true, text: msg });
       setTab("form");
-
       if (missingRequired.length > 0) {
         setOpenSection(missingRequired[0].section);
       } else {
@@ -233,8 +215,6 @@ export default function ProfilePage() {
       setParsing(false);
     }
   }
-
-  const sectionStatuses = SECTIONS.map((s) => ({ ...s, status: sectionStatus(s.id, p) }));
 
   const REQUIRED_FIELDS: { key: keyof ProfileInput; label: string; section: SectionId }[] = [
     { key: "fullName", label: "Full name", section: "personal" },
@@ -257,99 +237,149 @@ export default function ProfilePage() {
   const requiredFieldsMet = missingRequired.length === 0;
 
   return (
-    <div className="mx-auto max-w-2xl">
-      <div className="mb-10">
-        <h1 className="text-2xl font-bold tracking-tight text-[--text-primary]" style={{ fontFamily: "var(--font-display)" }}>
-          Build your student profile
-        </h1>
-        <p className="mt-2 text-[14px] text-[--text-secondary]">
-          Everything stays in your browser. The agent uses it to personalize research — fill what you can, it asks for anything critical that&apos;s missing.
-        </p>
-      </div>
+    <div className="flex min-h-[calc(100vh-3rem)]">
+      {/* Sidebar */}
+      <aside className="w-64 shrink-0 border-r border-[--border] bg-[--bg-content]">
+        <div className="sticky top-12 flex h-[calc(100vh-3rem)] flex-col">
+          {/* Section nav */}
+          <nav className="flex-1 overflow-y-auto p-4">
+            <div className="mb-4 text-[8px] uppercase tracking-widest text-[--text-muted]" style={{ fontFamily: "var(--font-display)" }}>
+              Sections
+            </div>
+            <div className="space-y-1">
+              {SECTIONS.map((sec) => {
+                const isActive = openSection === sec.id && tab === "form";
+                const status = sectionStatus(sec.id, p);
+                return (
+                  <button
+                    key={sec.id}
+                    onClick={() => { setTab("form"); setOpenSection(sec.id); }}
+                    className={`flex w-full items-center gap-3 rounded-r px-3 py-2.5 text-left transition-all ${
+                      isActive
+                        ? "border-l-[3px] border-l-[--accent-primary] bg-[--accent-primary-light] pl-[9px]"
+                        : "border-l-[3px] border-l-transparent hover:bg-[--bg-surface]"
+                    }`}
+                  >
+                    <span
+                      className={`text-[8px] font-bold ${isActive ? "text-[--accent-primary]" : "text-[--text-muted]"}`}
+                      style={{ fontFamily: "var(--font-display)" }}
+                    >
+                      {sec.num}
+                    </span>
+                    <span className={`flex-1 text-[12px] ${isActive ? "font-semibold text-[--text-primary]" : "text-[--text-secondary]"}`}>
+                      {sec.label}
+                    </span>
+                    <StatusIndicator status={status} />
+                  </button>
+                );
+              })}
+            </div>
+          </nav>
 
-      <div className="mb-6 flex items-center gap-2">
-        {(["form", "doc"] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`rounded-full px-4 py-1.5 text-[13px] font-medium transition-all ${
-              tab === t
-                ? "bg-[--accent-primary] text-white"
-                : "text-[--text-muted] hover:text-[--text-primary]"
-            }`}
-          >
-            {t === "form" ? "Quick form" : "Upload document"}
-          </button>
-        ))}
-        <a
-          href="/student-profile-template.md"
-          download
-          className="ml-auto text-[13px] text-[--text-muted] underline decoration-[--border] underline-offset-2 hover:text-[--text-primary] hover:decoration-[--text-muted]"
-        >
-          Download template
-        </a>
-      </div>
-
-      {tab === "doc" ? (
-        <div className="rounded-xl border border-[--border] bg-white p-6">
-          <ol className="mb-5 list-decimal space-y-1.5 pl-5 text-[13px] text-[--text-secondary]">
-            <li>Download the template above (or use any CV/notes file).</li>
-            <li>Fill it in with your details (.md / .txt / .pdf / any plain text).</li>
-            <li>Upload it here or paste the text — the AI extracts your profile.</li>
-          </ol>
-          <input
-            type="file"
-            accept=".pdf,.md,.txt,.json,.csv"
-            onChange={onFile}
-            className="mb-4 block w-full text-[13px] text-[--text-muted] file:mr-3 file:rounded-lg file:border file:border-[--border] file:bg-white file:px-4 file:py-2 file:text-[13px] file:font-medium file:text-[--text-primary] hover:file:bg-[--bg-surface]"
-          />
-          <textarea
-            value={docText}
-            onChange={(e) => setDocText(e.target.value.slice(0, 20000))}
-            placeholder="…or paste your filled document / CV text here"
-            className={`${inputCls} h-44 text-[13px]`}
-            style={{ fontFamily: "var(--font-mono)" }}
-          />
-          <div className="mt-4 flex items-center gap-4">
-            <button
-              onClick={parseDoc}
-              disabled={parsing || docText.trim().length < 20}
-              className="rounded-lg bg-[--accent-primary] px-5 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[--accent-primary-light] disabled:opacity-30"
+          {/* Sidebar footer */}
+          <div className="border-t border-[--border] p-4">
+            <div className="mb-3 flex gap-1">
+              {(["form", "doc"] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setTab(t)}
+                  className={`flex-1 rounded px-2 py-1.5 text-[10px] font-medium transition-colors ${
+                    tab === t
+                      ? "bg-[--accent-primary] text-white"
+                      : "bg-[--bg-surface] text-[--text-muted] hover:text-[--text-primary]"
+                  }`}
+                >
+                  {t === "form" ? "Form" : "Upload"}
+                </button>
+              ))}
+            </div>
+            <a
+              href="/student-profile-template.md"
+              download
+              className="block text-center text-[10px] text-[--text-muted] underline decoration-[--border] underline-offset-2 hover:text-[--accent-primary] hover:decoration-[--accent-primary]"
             >
-              {parsing ? "Parsing…" : "Parse with AI"}
-            </button>
-            {parseMsg ? (
-              <span className={`text-[13px] ${parseMsg.ok ? "text-[--accent-success]" : "text-[--accent-danger]"}`}>
-                {parseMsg.text}
-              </span>
-            ) : null}
+              Download template
+            </a>
           </div>
         </div>
-      ) : (
-        <div className="space-y-1">
-          {SECTIONS.map((sec) => {
-            const isOpen = openSection === sec.id;
-            const status = sectionStatus(sec.id, p);
-            return (
-              <div
-                key={sec.id}
-                className={`rounded-xl transition-colors ${isOpen ? "bg-[--bg-surface]" : "hover:bg-[--bg-surface]/50"}`}
-              >
-                <button
-                  onClick={() => setOpenSection(isOpen ? null : sec.id)}
-                  className="flex w-full items-center gap-3 px-4 py-3.5 text-left"
-                >
-                  <ChevronIcon open={isOpen} />
-                  <span className="flex-1 text-[14px] font-medium text-[--text-primary]" style={{ fontFamily: "var(--font-display)" }}>
-                    {sec.label}
-                  </span>
-                  <StatusDot status={status} />
-                </button>
+      </aside>
 
-                {isOpen && (
-                  <div className="px-4 pb-5 pt-1">
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-2xl px-8 py-10">
+          {/* Header */}
+          <div className="mb-10">
+            <h1 className="text-[11px] font-bold tracking-wide text-[--text-primary]" style={{ fontFamily: "var(--font-display)" }}>
+              Build your student profile
+            </h1>
+            <p className="mt-3 text-[13px] leading-relaxed text-[--text-secondary]">
+              Everything stays in your browser. The agent uses it to personalize research — fill what you can, it asks for anything critical that&apos;s missing.
+            </p>
+          </div>
+
+          {tab === "doc" ? (
+            /* Document upload */
+            <div className="rounded border border-[--border] bg-[--bg-content] p-6">
+              <div className="mb-5 text-[9px] uppercase tracking-widest text-[--text-muted]" style={{ fontFamily: "var(--font-display)" }}>
+                How it works
+              </div>
+              <ol className="mb-5 list-decimal space-y-2 pl-5 text-[13px] text-[--text-secondary]">
+                <li>Download the template above (or use any CV/notes file).</li>
+                <li>Fill it in with your details (.md / .txt / .pdf / any plain text).</li>
+                <li>Upload it here or paste the text — the AI extracts your profile.</li>
+              </ol>
+              <input
+                type="file"
+                accept=".pdf,.md,.txt,.json,.csv"
+                onChange={onFile}
+                className="mb-4 block w-full text-[13px] text-[--text-muted] file:mr-3 file:rounded file:border file:border-[--border] file:bg-[--bg-content] file:px-4 file:py-2 file:text-[12px] file:font-medium file:text-[--text-primary] hover:file:bg-[--bg-surface]"
+              />
+              <textarea
+                value={docText}
+                onChange={(e) => setDocText(e.target.value.slice(0, 20000))}
+                placeholder="…or paste your filled document / CV text here"
+                className={`${inputCls} h-44 text-[12px]`}
+                style={{ fontFamily: "var(--font-mono)" }}
+              />
+              <div className="mt-4 flex items-center gap-4">
+                <button
+                  onClick={parseDoc}
+                  disabled={parsing || docText.trim().length < 20}
+                  className="rounded bg-[--accent-primary] px-5 py-2 text-[12px] font-semibold text-white transition-colors hover:bg-[--accent-primary-hover] disabled:opacity-30"
+                >
+                  {parsing ? "Parsing…" : "Parse with AI"}
+                </button>
+                {parseMsg ? (
+                  <span className={`text-[12px] ${parseMsg.ok ? "text-[--accent-success]" : "text-[--accent-danger]"}`}>
+                    {parseMsg.text}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+          ) : (
+            /* Active section form */
+            <div>
+              {SECTIONS.map((sec) => {
+                if (openSection !== sec.id) return null;
+                return (
+                  <div key={sec.id}>
+                    <div className="mb-6 flex items-center gap-3">
+                      <span
+                        className="text-[10px] font-bold text-[--accent-primary]"
+                        style={{ fontFamily: "var(--font-display)" }}
+                      >
+                        {sec.num}
+                      </span>
+                      <h2
+                        className="text-[10px] font-bold uppercase tracking-widest text-[--text-primary]"
+                        style={{ fontFamily: "var(--font-display)" }}
+                      >
+                        {sec.label}
+                      </h2>
+                    </div>
+
                     {sec.id === "personal" && (
-                      <div className="grid gap-4 md:grid-cols-2">
+                      <div className="grid gap-5 md:grid-cols-2">
                         <label>
                           <FieldLabel required>Full name</FieldLabel>
                           <input className={inputCls} value={p.fullName ?? ""} onChange={(e) => set("fullName", e.target.value)} placeholder="Amina Yusuf" />
@@ -370,7 +400,7 @@ export default function ProfilePage() {
                     )}
 
                     {sec.id === "academic" && (
-                      <div className="grid gap-4 md:grid-cols-2">
+                      <div className="grid gap-5 md:grid-cols-2">
                         <label>
                           <FieldLabel required>Academic level</FieldLabel>
                           <select className={inputCls} value={p.level ?? ""} onChange={(e) => set("level", e.target.value || undefined)}>
@@ -407,7 +437,7 @@ export default function ProfilePage() {
                     )}
 
                     {sec.id === "goals" && (
-                      <div className="grid gap-4 md:grid-cols-2">
+                      <div className="grid gap-5 md:grid-cols-2">
                         <label>
                           <FieldLabel required hint="comma separated">Target countries</FieldLabel>
                           <input className={inputCls} value={(p.targetCountries ?? []).join(", ")} onChange={(e) => set("targetCountries", parseList(e.target.value))} placeholder="Germany, Canada, remote" />
@@ -429,16 +459,16 @@ export default function ProfilePage() {
                           <input className={inputCls} value={draftFor("links")} onChange={(e) => setDrafts({ ...drafts, links: e.target.value })} placeholder="github.com/you, linkedin.com/in/you" />
                         </label>
                         <div className="flex gap-6 md:col-span-2">
-                          <label className="flex items-center gap-2.5 text-[13px] text-[--text-secondary]">
+                          <label className="flex items-center gap-2.5 text-[12px] text-[--text-secondary]">
                             <input
                               type="checkbox"
                               checked={Boolean(p.needsFullFunding)}
                               onChange={(e) => set("needsFullFunding", e.target.checked)}
                               className="h-3.5 w-3.5 rounded border-[--border] accent-[--accent-primary]"
                             />
-                            I need fully-funded options only <span className="text-[--accent-danger]">*</span>
+                            I need fully-funded options only <span className="text-[--accent-primary]">*</span>
                           </label>
-                          <label className="flex items-center gap-2.5 text-[13px] text-[--text-secondary]">
+                          <label className="flex items-center gap-2.5 text-[12px] text-[--text-secondary]">
                             <input
                               type="checkbox"
                               checked={Boolean(p.remoteOnly)}
@@ -452,7 +482,7 @@ export default function ProfilePage() {
                     )}
 
                     {sec.id === "experience" && (
-                      <div className="space-y-4">
+                      <div className="space-y-5">
                         <label>
                           <FieldLabel hint="one per line">Experience</FieldLabel>
                           <textarea
@@ -475,7 +505,7 @@ export default function ProfilePage() {
                     )}
 
                     {sec.id === "extra" && (
-                      <div className="space-y-4">
+                      <div className="space-y-5">
                         <label>
                           <FieldLabel hint="visa, money, relocation limits…">Constraints</FieldLabel>
                           <textarea
@@ -497,27 +527,30 @@ export default function ProfilePage() {
                       </div>
                     )}
                   </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
+                );
+              })}
+            </div>
+          )}
 
-      <div className="sticky bottom-6 mt-10 flex flex-col items-end gap-2.5">
-        {!requiredFieldsMet ? (
-          <span className="text-[12px] text-[--text-muted]">
-            Fill required fields: {missingRequired.map((f) => f.label).join(", ")}
-          </span>
-        ) : null}
-        <button
-          onClick={save}
-          disabled={!requiredFieldsMet}
-          className="rounded-full bg-[--accent-primary] px-8 py-2.5 text-[14px] font-medium text-white transition-colors hover:bg-[--accent-primary-light] disabled:opacity-30 disabled:cursor-not-allowed"
-          style={{ fontFamily: "var(--font-display)" }}
-        >
-          Save & meet your agent →
-        </button>
+          {/* Save button */}
+          <div className="sticky bottom-0 mt-12 border-t border-[--border] bg-[--bg-base] pt-5 pb-5">
+            <div className="flex items-center justify-between">
+              {!requiredFieldsMet ? (
+                <span className="text-[11px] text-[--text-muted]">
+                  Missing: {missingRequired.map((f) => f.label).join(", ")}
+                </span>
+              ) : <span />}
+              <button
+                onClick={save}
+                disabled={!requiredFieldsMet}
+                className="rounded bg-[--accent-primary] px-6 py-2.5 text-[10px] font-bold text-white transition-colors hover:bg-[--accent-primary-hover] disabled:opacity-30 disabled:cursor-not-allowed"
+                style={{ fontFamily: "var(--font-display)" }}
+              >
+                Save & meet your agent →
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

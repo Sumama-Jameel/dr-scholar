@@ -1,27 +1,28 @@
-@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
 @import "tailwindcss";
 
 :root {
   color-scheme: light;
-  --font-display: "Space Grotesk", system-ui, sans-serif;
+  --font-display: "Press Start 2P", monospace;
   --font-body: "Inter", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
-  --bg-base: #FFFFFF;
-  --bg-surface: #F9FAFB;
-  --bg-surface-hover: #F3F4F6;
-  --border: #E5E7EB;
-  --border-subtle: #F3F4F6;
+  --bg-base: #FAFAF9;
+  --bg-content: #FFFFFF;
+  --bg-surface: #F5F5F4;
+  --border: #E7E5E4;
+  --border-strong: #D6D3D1;
 
-  --accent-primary: #000000;
-  --accent-primary-light: #374151;
+  --accent-primary: #E11D48;
+  --accent-primary-hover: #BE123C;
+  --accent-primary-light: rgba(225, 29, 72, 0.08);
   --accent-gold: #D97706;
   --accent-success: #059669;
   --accent-danger: #DC2626;
 
-  --text-primary: #111827;
-  --text-secondary: #6B7280;
-  --text-muted: #9CA3AF;
+  --text-primary: #1C1917;
+  --text-secondary: #57534E;
+  --text-muted: #A8A29E;
 }
 
 html {
@@ -38,20 +39,20 @@ body {
 }
 
 ::selection {
-  background: rgba(0, 0, 0, 0.08);
+  background: rgba(225, 29, 72, 0.12);
 }
 
 /* scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #D1D5DB;
+  background: #D6D3D1;
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #9CA3AF;
+  background: #A8A29E;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -59,18 +60,25 @@ body {
 
 /* focus ring */
 *:focus-visible {
-  outline: 2px solid #000;
+  outline: 2px solid var(--accent-primary);
   outline-offset: 2px;
   border-radius: 4px;
 }
 
-/* subtle pulse for thinking indicator */
+/* pulse for thinking indicator */
 @keyframes pulse-dot {
   0%, 100% { opacity: 0.3; }
   50% { opacity: 1; }
 }
 .pulse-dot {
   animation: pulse-dot 1.4s ease-in-out infinite;
+}
+
+/* pixel heading utility */
+.pixel-heading {
+  font-family: var(--font-display);
+  line-height: 1.6;
+  letter-spacing: 0;
 }
 
 /* markdown body styles */
@@ -82,17 +90,18 @@ body {
 .md-body h1, .md-body h2, .md-body h3, .md-body h4, .md-body h5, .md-body h6 {
   font-family: var(--font-display);
   color: var(--text-primary);
-  line-height: 1.3;
-  font-weight: 600;
+  line-height: 1.6;
+  letter-spacing: 0;
 }
-.md-body h5, .md-body h6 {
-  color: var(--text-secondary);
-  letter-spacing: 0.02em;
-}
+.md-body h1 { font-size: 0.875rem; }
+.md-body h2 { font-size: 0.75rem; }
+.md-body h3 { font-size: 0.7rem; }
+.md-body h4, .md-body h5, .md-body h6 { font-size: 0.65rem; }
+.md-body p { margin-bottom: 0.75rem; }
 .md-body table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
 }
 .md-body th,
 .md-body td {
@@ -104,9 +113,8 @@ body {
 .md-body th {
   background: var(--bg-surface);
   color: var(--text-primary);
-  font-family: var(--font-display);
   font-weight: 600;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -114,24 +122,25 @@ body {
   background: var(--bg-surface);
 }
 .md-body blockquote {
-  border-left: 2px solid var(--border);
+  border-left: 3px solid var(--accent-primary);
   padding-left: 1rem;
   color: var(--text-muted);
   margin: 0.75rem 0;
 }
 .md-body pre {
-  border-radius: 8px;
+  border-radius: 6px;
   border: 1px solid var(--border);
   background: var(--bg-surface);
 }
 .md-body a {
-  color: var(--text-primary);
+  color: var(--accent-primary);
   text-decoration: underline;
-  text-decoration-color: rgba(0, 0, 0, 0.15);
+  text-decoration-color: rgba(225, 29, 72, 0.3);
+  text-underline-offset: 2px;
   transition: text-decoration-color 0.15s ease;
 }
 .md-body a:hover {
-  text-decoration-color: rgba(0, 0, 0, 0.5);
+  text-decoration-color: var(--accent-primary);
 }
 .md-body del {
   color: var(--text-muted);

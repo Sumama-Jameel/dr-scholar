@@ -44,7 +44,7 @@ function inline(text: string, keyBase: string): React.ReactNode[] {
       if (mm) {
         out.push(
           <a key={key} href={mm[2]} target="_blank" rel="noreferrer"
-             className="text-[--text-primary] underline decoration-[--border] underline-offset-2 hover:decoration-[--text-muted]">
+             className="text-[--accent-primary] underline decoration-[--accent-primary]/30 underline-offset-2 hover:decoration-[--accent-primary]">
             {mm[1]}
           </a>
         );
@@ -52,7 +52,7 @@ function inline(text: string, keyBase: string): React.ReactNode[] {
     } else if (token.startsWith("http")) {
       out.push(
         <a key={key} href={token} target="_blank" rel="noreferrer"
-           className="break-all text-[--text-primary] underline decoration-[--border] underline-offset-2 hover:decoration-[--text-muted]">
+           className="break-all text-[--accent-primary] underline decoration-[--accent-primary]/30 underline-offset-2 hover:decoration-[--accent-primary]">
           {token.length > 60 ? token.slice(0, 57) + "…" : token}
         </a>
       );
@@ -274,7 +274,7 @@ export default function MiniMarkdown({ text, className = "" }: { text: string; c
                           className={`inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] ${
                             it.checked
                               ? "border-[--accent-primary] bg-[--accent-primary] text-white"
-                              : "border-[--border] bg-white"
+                              : "border-[--border-strong] bg-[--bg-content]"
                           }`}
                         >
                           {it.checked ? "✓" : ""}
@@ -301,7 +301,7 @@ export default function MiniMarkdown({ text, className = "" }: { text: string; c
                           className={`inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] ${
                             it.checked
                               ? "border-[--accent-primary] bg-[--accent-primary] text-white"
-                              : "border-[--border] bg-white"
+                              : "border-[--border-strong] bg-[--bg-content]"
                           }`}
                         >
                           {it.checked ? "✓" : ""}
@@ -319,7 +319,7 @@ export default function MiniMarkdown({ text, className = "" }: { text: string; c
             );
           case "quote":
             return (
-              <blockquote key={key} className="border-l-2 border-[--border] pl-4 text-[--text-muted]">
+              <blockquote key={key} className="border-l-[3px] border-l-[--accent-primary] bg-[--accent-primary-light] pl-4 pr-3 py-2.5 text-[--text-secondary]">
                 {b.paragraphs.map((p, j) => (
                   <p key={j} className={j > 0 ? "mt-2" : ""}>
                     {inline(p, `${key}-q${j}`)}
@@ -337,7 +337,7 @@ export default function MiniMarkdown({ text, className = "" }: { text: string; c
               </pre>
             );
           case "hr":
-            return <hr key={key} className="border-[--border]" />;
+            return <hr key={key} className="border-[--border-strong]" />;
           case "table": {
             const [head, ...rows] = b.rows;
             if (!head) return null;

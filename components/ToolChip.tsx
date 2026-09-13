@@ -9,14 +9,17 @@ export type ToolEvent = {
   top?: { title: string; url: string; source?: string; deadline?: string }[];
 };
 
-const ICONS: Record<string, string> = {
-  deep_research: "🔬",
-  search_web: "🔎",
-  fetch_page: "📄",
-  jobs_api: "💼",
-  seed_catalog: "🗂️",
-  eligibility_check: "✅",
+const TOOL_LABELS: Record<string, string> = {
+  deep_research: "Deep research",
+  search_web: "Web search",
+  fetch_page: "Fetch page",
+  jobs_api: "Jobs API",
+  seed_catalog: "Catalog",
+  eligibility_check: "Eligibility",
 };
+
+let toolCounter = 0;
+const toolNum = () => `${String(++toolCounter).padStart(2, "0")}`;
 
 function pendingSummary(ev: ToolEvent): string {
   const a = ev.args ?? {};
@@ -39,18 +42,21 @@ function pendingSummary(ev: ToolEvent): string {
 }
 
 export default function ToolChip({ ev }: { ev: ToolEvent }) {
-  const icon = ICONS[ev.name] ?? "🛠️";
+  const label = TOOL_LABELS[ev.name] ?? ev.name.replace(/_/g, " ");
   const running = ev.status === "running";
   const failed = ev.status === "error";
   const line = ev.summary ?? pendingSummary(ev);
 
   return (
-    <div className="rounded-lg bg-[--bg-surface] px-3 py-2 text-[12px]">
-      <div className="flex items-center gap-2">
-        <span className="text-[13px]">{icon}</span>
-        <span className="font-medium text-[--text-primary]" style={{ fontFamily: "var(--font-display)" }}>
-          {ev.name.replace(/_/g, " ")}
+    <div className="border border-[--border] bg-[--bg-content] px-3 py-2 text-[11px]">
+      <div className="flex items-center gap-2.5">
+        <span
+          className={`text-[8px] font-bold ${running ? "text-[--accent-primary]" : "text-[--text-muted]"}`}
+          style={{ fontFamily: "var(--font-display)" }}
+        >
+          {toolNum()}
         </span>
+        <span className="font-medium text-[--text-primary]">{label}</span>
         {running ? (
           <span className="pulse-dot h-1 w-1 rounded-full bg-[--accent-primary]" />
         ) : failed ? (
@@ -60,26 +66,26 @@ export default function ToolChip({ ev }: { ev: ToolEvent }) {
         )}
         <span className="ml-auto truncate text-[--text-muted]">{line}</span>
         {ev.ms ? (
-          <span className="text-[10px] text-[--text-muted]">
+          <span className="text-[9px] text-[--text-muted]">
             {(ev.ms / 1000).toFixed(1)}s
           </span>
         ) : null}
       </div>
       {ev.top?.length ? (
-        <div className="mt-2 space-y-1 border-t border-[--border-subtle] pt-2">
+        <div className="mt-2 space-y-1 border-t border-[--border] pt-2">
           {ev.top.map((f, i) => (
-            <div key={i} className="flex items-start gap-2 text-[12px] text-[--text-secondary]">
+            <div key={i} className="flex items-start gap-2 text-[11px] text-[--text-secondary]">
               <div className="min-w-0 flex-1">
                 <a
                   href={f.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-[--text-primary] underline decoration-[--border] underline-offset-2 hover:decoration-[--text-muted]"
+                  className="text-[--accent-primary] underline decoration-[--accent-primary]/30 underline-offset-2 hover:decoration-[--accent-primary]"
                 >
                   {f.title.slice(0, 90)}
                 </a>
                 {f.deadline ? (
-                  <span className="ml-2 text-[10px] text-[--accent-gold]">
+                  <span className="ml-2 text-[9px] text-[--accent-gold]">
                     {f.deadline}
                   </span>
                 ) : null}

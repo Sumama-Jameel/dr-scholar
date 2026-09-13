@@ -127,16 +127,55 @@ export default function ProfilePage() {
     router.push("/chat");
   }
 
+  async function extractPdfText(data: ArrayBuffer): Promise<string> {
+    const pdfjsLib = await import("pdfjs-dist");
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+    const doc = await pdfjsLib.getDocument({ data }).promise;
+    const pageTexts: string[] = [];
+    for (let i = 1; i <= doc.numPages; i++) {
+      const page = await doc.getPage(i);
+      const content = await page.getTextContent();
+      const text = content.items
+        .filter((item) => "str" in item)
+        .map((item) => (item as { str: string }).str)
+        .join(" ");
+      pageTexts.push(text);
+    }
+    return pageTexts.join("\n\n");
+  }
+
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f) return;
 
-    // Validate file type
     const ext = f.name.split(".").pop()?.toLowerCase() ?? "";
+
+    // PDF handling
+    if (ext === "pdf" || f.type === "application/pdf") {
+      setParseMsg({ ok: true, text: `Reading "${f.name}"…` });
+      try {
+        const arrayBuf = await f.arrayBuffer();
+        const text = await extractPdfText(arrayBuf);
+        if (!text.trim()) {
+          setParseMsg({ ok: false, text: "This PDF has no extractable text — it may be a scanned/image PDF. Try a text-based PDF or paste the content manually." });
+          return;
+        }
+        const sliced = text.slice(0, 20000);
+        setDocText(sliced);
+        const kb = Math.round(text.length / 1024);
+        const warn = text.length > 20000 ? ` (truncated from ${kb} KB to 20 KB)` : ` (${kb} KB)`;
+        setParseMsg({ ok: true, text: `Extracted ${warn} from "${f.name}" — hit Parse.` });
+      } catch (err) {
+        setParseMsg({ ok: false, text: `Failed to read PDF: ${(err as Error).message}` });
+      }
+      return;
+    }
+
+    // Text file handling
     const validExts = ["md", "txt", "json", "csv"];
     const validTypes = ["text/plain", "text/markdown", "text/csv", "application/json", ""];
     if (!validExts.includes(ext) && !validTypes.includes(f.type)) {
-      setParseMsg({ ok: false, text: `Unsupported file type ".${ext}" — upload a .md, .txt, .csv, or .json file.` });
+      setParseMsg({ ok: false, text: `Unsupported file type ".${ext}" — upload a .pdf, .md, .txt, .csv, or .json file.` });
       return;
     }
 
@@ -261,12 +300,12 @@ export default function ProfilePage() {
         <div className="rounded-xl border border-[--border] bg-[--bg-surface] p-6">
           <ol className="mb-4 list-decimal space-y-1.5 pl-5 text-sm text-[--text-secondary]">
             <li>Download the template above (or use any CV/notes file).</li>
-            <li>Fill it in with your details (.md / .txt / any plain text).</li>
+            <li>Fill it in with your details (.md / .txt / .pdf / any plain text).</li>
             <li>Upload it here or paste the text — the AI extracts your profile.</li>
           </ol>
           <input
             type="file"
-            accept=".md,.txt,.json,.csv,text/*"
+            accept=".pdf,.md,.txt,.json,.csv"
             onChange={onFile}
             className="mb-3 block w-full text-sm text-[--text-muted] file:mr-3 file:rounded-lg file:border-0 file:bg-[--accent-primary] file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-[--accent-primary-light]"
           />

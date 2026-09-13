@@ -1,5 +1,7 @@
 /** Internship listings from keyless / free job APIs. Core sources need no key. */
 
+import { withTimeout } from "./http";
+
 export type JobHit = {
   title: string;
   org: string;
@@ -9,12 +11,6 @@ export type JobHit = {
   tags: string[];
   source: string;
 };
-
-function withTimeout<T>(fn: (signal: AbortSignal) => Promise<T>, ms: number): Promise<T> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), ms);
-  return fn(controller.signal).finally(() => clearTimeout(timer));
-}
 
 function isInternish(...parts: (string | string[] | undefined)[]): boolean {
   const hay = parts

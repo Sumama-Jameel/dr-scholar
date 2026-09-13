@@ -147,10 +147,10 @@ function compactToolResult(name: string, result: unknown): string {
       ].join(" | ");
     }
     case "eligibility_check": {
-      const verdicts = (r.verdicts as { title?: string; verdict?: string; reason?: string }[]) ?? [];
+      const verdicts = (r.verdicts as { name?: string; verdict?: string; reasons?: string[] }[]) ?? [];
       const lines = verdicts
         .slice(0, 8)
-        .map((v, i) => `${i + 1}. ${v.title ?? "?"}: ${v.verdict ?? "?"}${v.reason ? ` — ${v.reason}` : ""}`);
+        .map((v, i) => `${i + 1}. ${v.name ?? "?"}: ${v.verdict ?? "?"}${v.reasons?.length ? ` — ${v.reasons.join("; ")}` : ""}`);
       return [`eligibility_check: ${verdicts.length} items`, ...lines].join("\n");
     }
     default:
@@ -277,7 +277,7 @@ export async function POST(req: Request) {
       try {
         send({ t: "meta", model: primary });
         const MAX_STEPS = 6;
-        const PER_TURN_TIMEOUT_MS = 90_000; // no single LLM turn may eat the whole budget
+        const PER_TURN_TIMEOUT_MS = 75_000; // a full report synthesis legitimately streams 60-120s
         const MAX_TOOL_ROUNDS = 2; // research → verify/screen → force synthesis
         const hardDeadline = Date.now() + 270_000; // stay under the 300s function cap
 
@@ -296,16 +296,29 @@ export async function POST(req: Request) {
               ? undefined
               : toolSpecs;
           let turn;
+          // Abort handle so a per-turn timeout actually tears down the in-flight
+          // LLM stream. withTimeout only races — if we don't abort here, the
+          // backgrounded `reader.read()` / `fetch` body stays live on the Node
+          // event loop and Vercel holds the response open, freezing the browser
+          // on "Writing your report…" with no end.
+          const turnAbort = new AbortController();
           try {
             turn = await withTimeout(
-              streamTurn(messages, toolsForTurn, (ev: StreamEvent) => {
-                if (ev.type === "text") send({ t: "delta", v: ev.text });
-              }, { temperature: 0.4, maxTokens: 8192 }),
+              streamTurn(
+                messages,
+                toolsForTurn,
+                (ev: StreamEvent) => {
+                  if (ev.type === "text") send({ t: "delta", v: ev.text });
+                },
+                { temperature: 0.4, maxTokens: 8192, signal: turnAbort.signal }
+              ),
               PER_TURN_TIMEOUT_MS,
               `streamTurn step ${step}`
             );
           } catch (e: unknown) {
             const err = e as Error;
+            // Cut the backgrounded stream loose so its socket/timer/handles release.
+            turnAbort.abort();
             if (err.message !== "aborted" && !req.signal.aborted) {
               console.warn(`[chat] streamTurn failed at step ${step}:`, err.message);
               // Tools already ran — emit a clean digest built from the structured
@@ -412,16 +425,26 @@ export async function POST(req: Request) {
         // Last resort: if the loop ended without a report, try ONE final synthesis
         // pass with tools disabled (only while real time remains).
         if (toolLog.length > 0 && !reportSent && Date.now() < hardDeadline - 10_000) {
+          let finalAbort: AbortController | undefined;
           try {
+            finalAbort = new AbortController();
             const finalTurn = await withTimeout(
-              streamTurn(messages, undefined, (ev: StreamEvent) => {
-                if (ev.type === "text") send({ t: "delta", v: ev.text });
-              }, { temperature: 0.4, maxTokens: 8192 }),
+              streamTurn(
+                messages,
+                undefined,
+                (ev: StreamEvent) => {
+                  if (ev.type === "text") send({ t: "delta", v: ev.text });
+                },
+                { temperature: 0.4, maxTokens: 8192, signal: finalAbort.signal }
+              ),
               Math.min(60_000, Math.max(10_000, hardDeadline - Date.now() - 5_000)),
               "final synthesis"
             );
             if (finalTurn.text.trim()) reportSent = true;
           } catch (e: unknown) {
+                        // Aborted either by our withTimeout or by the user request — tear down
+            // the background stream so the response can finalize.
+                        finalAbort?.abort();
             console.warn("[chat] final synthesis failed:", (e as Error).message);
           }
         }

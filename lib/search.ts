@@ -1,4 +1,5 @@
 import { collapse, stripTags } from "./html";
+import { BROWSER_UA, withTimeout } from "./http";
 
 export type SearchHit = { title: string; url: string; snippet: string; engine: string };
 export type EngineStatus = {
@@ -8,9 +9,6 @@ export type EngineStatus = {
   ms: number;
   error?: string;
 };
-
-const BROWSER_UA =
-  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
 
 /** Hosts that are useless as research sources for this app. */
 export const BLOCKED_HOSTS = [
@@ -43,7 +41,7 @@ export function isBlockedUrl(url: string): boolean {
   const h = hostOf(url);
   if (!h) return true;
   if (url.includes("/y.js") || url.includes("uddg=")) return true;
-  return BLOCKED_HOSTS.some((b) => h === b || h.includes(b));
+  return BLOCKED_HOSTS.some((b) => h === b || h.endsWith("." + b));
 }
 
 export function urlKey(url: string): string {
@@ -58,16 +56,6 @@ export function urlKey(url: string): string {
 }
 
 /* ───────────────────────── engines ───────────────────────── */
-
-async function withTimeout<T>(fn: (signal: AbortSignal) => Promise<T>, ms: number): Promise<T> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), ms);
-  try {
-    return await fn(controller.signal);
-  } finally {
-    clearTimeout(timer);
-  }
-}
 
 async function tavilySearch(query: string, max: number): Promise<SearchHit[]> {
   const key = process.env.TAVILY_API_KEY;
@@ -376,6 +364,10 @@ export async function searchWeb(
   chain.push({ name: "duckduckgo", fn: () => ddgHtml(query, max) });
   chain.push({ name: "duckduckgo-lite", fn: () => ddgLite(query, max) });
   chain.push({ name: "mojeek", fn: () => mojeek(query, max) });
+  // GitHub — free API, surfaces scholarship/internship lists and curated repos.
+  chain.push({ name: "github", fn: () => githubSearch(query, max) });
+  // Hacker News — free API, surfaces community discussions about programs.
+  chain.push({ name: "hn", fn: () => hnSearch(query, max) });
   // Wikipedia — last resort, generic but always works.
   chain.push({ name: "wikipedia", fn: () => wikipediaSearch(query, max) });
 

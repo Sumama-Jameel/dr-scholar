@@ -62,7 +62,11 @@ function rateLimitRetryMs(err: unknown): number {
 }
 
 function geminiKey(): string | undefined {
-  return process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY;
+  return process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+}
+
+function geminiModel(): string {
+  return process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
 }
 
 /* ----------------------- backend discovery ----------------------- */
@@ -78,10 +82,10 @@ export function llmBackends(): BackendDesc[] {
   const out: BackendDesc[] = [];
 
   if (geminiKey()) {
-    out.push({ name: "gemini", model: "gemini-2.5-flash", available: true });
+    out.push({ name: "gemini", model: geminiModel(), available: true });
     out.push({ name: "gemini", model: "gemini-3.1-pro-preview", available: true });
   } else {
-    out.push({ name: "gemini", model: "gemini-2.5-flash", available: false, reason: "no gemini key" });
+    out.push({ name: "gemini", model: geminiModel(), available: false, reason: "no gemini key" });
   }
 
   if (process.env.GROQ_API_KEY) {
@@ -188,15 +192,33 @@ const GROQ_BASE = "https://api.groq.com/openai/v1";
 const LLM_CONNECT_TIMEOUT_MS = 30_000;
 
 /** Fetch that aborts only if response HEADERS don't arrive in time. Once headers
- *  are in, the connection is healthy and the stream may run as long as needed. */
-async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+ *  are in, the connection is healthy and the stream may run as long as needed.
+ *
+ *  The optional `signal` lets a caller cancel the request mid-body (e.g. when the
+ *  route's turn-timeout fires while `reader.read()` is blocked on a stalled SSE
+ *  stream). Without it we'd `void p.catch(() => {})` the promise and leave the
+ *  in-flight socket/reader live on the Node event loop, which on Vercel keeps the
+ *  response channel open and freezes the browser reader forever ("Writing your
+ *  report…" with no end). */
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+  signal?: AbortSignal
+): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const onAbort = () => controller.abort();
+  if (signal) {
+    if (signal.aborted) controller.abort();
+    signal.addEventListener("abort", onAbort, { once: true });
+  }
   try {
     const res = await fetch(url, { ...init, signal: controller.signal });
     return res;
   } finally {
     clearTimeout(timer);
+    signal?.removeEventListener("abort", onAbort);
   }
 }
 
@@ -204,10 +226,11 @@ export async function streamTurn(
   messages: ChatMsg[],
   tools: ToolSpec[] | undefined,
   onEvent: (ev: StreamEvent) => void,
-  opts: { temperature?: number; maxTokens?: number } = {}
+  opts: { temperature?: number; maxTokens?: number; signal?: AbortSignal } = {}
 ): Promise<StreamTurnResult> {
   const temperature = opts.temperature ?? 0.4;
   const maxTokens = opts.maxTokens ?? 8192;
+  const signal = opts.signal;
   const errors: string[] = [];
 
   // Streaming guard: once any text/tool event has been streamed to the client, a
@@ -234,8 +257,8 @@ export async function streamTurn(
     if (geminiKey()) {
       try {
         return await withRetry(
-          () => geminiStream("gemini-2.5-flash", messages, tools, { temperature, maxTokens }, guardedOnEvent),
-          "gemini:gemini-2.5-flash",
+                    () => geminiStream(geminiModel(), messages, tools, { temperature, maxTokens, signal }, guardedOnEvent),
+          `gemini:${geminiModel()}`,
           1,
           stopRetrying
         );
@@ -252,7 +275,7 @@ export async function streamTurn(
     if (process.env.GROQ_API_KEY) {
       try {
         return await withRetry(
-          () => groqStream(messages, tools, { temperature, maxTokens }, guardedOnEvent),
+                    () => groqStream(messages, tools, { temperature, maxTokens, signal }, guardedOnEvent),
           "groq",
           1,
           stopRetrying
@@ -270,7 +293,7 @@ export async function streamTurn(
     if (geminiKey()) {
       try {
         return await withRetry(
-          () => geminiStream("gemini-3.1-pro-preview", messages, tools, { temperature, maxTokens }, guardedOnEvent),
+                    () => geminiStream("gemini-3.1-pro-preview", messages, tools, { temperature, maxTokens, signal }, guardedOnEvent),
           "gemini:gemini-3.1-pro-preview",
           1,
           stopRetrying
@@ -301,10 +324,11 @@ export async function streamTurn(
 
 async function groqStream(
   messages: ChatMsg[],
-  tools: ToolSpec[] | undefined,
-  opts: { temperature: number; maxTokens: number },
+     tools: ToolSpec[] | undefined,
+  opts: { temperature: number; maxTokens: number; signal?: AbortSignal },
   onEvent: (ev: StreamEvent) => void
 ): Promise<StreamTurnResult> {
+  const signal = opts.signal;
   const body: Record<string, unknown> = {
     model: "qwen/qwen3.8-27b",
     messages: messages.map((m) => ({ role: m.role, content: m.text })),
@@ -325,21 +349,21 @@ async function groqStream(
     body.tool_choice = "auto";
   }
 
-  const res = await fetchWithTimeout(`${GROQ_BASE}/chat/completions`, {
+    const res = await fetchWithTimeout(`${GROQ_BASE}/chat/completions`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${process.env.GROQ_API_KEY!}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
-  }, LLM_CONNECT_TIMEOUT_MS);
+  }, LLM_CONNECT_TIMEOUT_MS, signal);
 
   if (!res.ok) {
     const txt = (await res.text()).slice(0, 400);
     throw new Error(`groq error ${res.status}: ${txt}`);
   }
 
-  const reader = res.body?.getReader();
+    const reader = res.body?.getReader();
   if (!reader) throw new Error("groq: no body");
   const dec = new TextDecoder();
   let buffer = "";
@@ -347,52 +371,69 @@ async function groqStream(
   let toolCalls: StreamTurnResult["toolCalls"] = [];
   let finishReason: "stop" | "tool_calls" | "length" | "error" | undefined;
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += dec.decode(value, { stream: true });
-    let nl: number;
-    while ((nl = buffer.indexOf("\n\n")) >= 0) {
-      const chunk = buffer.slice(0, nl).trim();
-      buffer = buffer.slice(nl + 2);
-      if (!chunk || chunk === "data: [DONE]") continue;
-      const line = chunk.startsWith("data: ") ? chunk.slice(6) : chunk;
+  try {
+    while (true) {
+      let done = false;
+      let value: Uint8Array | undefined;
       try {
-        const evt = JSON.parse(line);
-        for (const choice of evt.choices ?? []) {
-          const delta = choice.delta;
-          if (delta?.content) {
-            text += delta.content;
-            onEvent({ type: "text", text: delta.content });
-          }
-          if (delta?.tool_calls) {
-            for (const tc of delta.tool_calls) {
-              const idx = tc.index ?? toolCalls.length;
-              if (!toolCalls[idx]) {
-                toolCalls[idx] = {
-                  name: tc.function?.name ?? "",
-                  args: {} as Record<string, unknown>,
-                  id: tc.id,
-                };
-                onEvent({
-                  type: "tool_call",
-                  name: toolCalls[idx].name,
-                  args: {},
-                  id: tc.id,
-                });
-              }
-              if (tc.function?.arguments) {
-                toolCalls[idx].args = mergeArgs(toolCalls[idx].args, tc.function.arguments);
+        ({ done, value } = await reader.read());
+      } catch {
+        // request was aborted (route turn-timeout) — stop spinning and return
+        // whatever partial result we already have so the route can fall back
+        // to the digest instead of leaving the stream open.
+        break;
+      }
+      if (done) break;
+      buffer += dec.decode(value, { stream: true });
+      let nl: number;
+      while ((nl = buffer.indexOf("\n\n")) >= 0) {
+        const chunk = buffer.slice(0, nl).trim();
+        buffer = buffer.slice(nl + 2);
+        if (!chunk || chunk === "data: [DONE]") continue;
+        const line = chunk.startsWith("data: ") ? chunk.slice(6) : chunk;
+        try {
+          const evt = JSON.parse(line);
+          for (const choice of evt.choices ?? []) {
+            const delta = choice.delta;
+            if (delta?.content) {
+              text += delta.content;
+              onEvent({ type: "text", text: delta.content });
+            }
+            if (delta?.tool_calls) {
+              for (const tc of delta.tool_calls) {
+                const idx = tc.index ?? toolCalls.length;
+                if (!toolCalls[idx]) {
+                  toolCalls[idx] = {
+                    name: tc.function?.name ?? "",
+                    args: {} as Record<string, unknown>,
+                    id: tc.id,
+                  };
+                  onEvent({
+                    type: "tool_call",
+                    name: toolCalls[idx].name,
+                    args: {},
+                    id: tc.id,
+                  });
+                }
+                if (tc.function?.arguments) {
+                  toolCalls[idx].args = mergeArgs(toolCalls[idx].args, tc.function.arguments);
+                }
               }
             }
+            if (choice.finish_reason) {
+              finishReason = mapFinish(choice.finish_reason);
+            }
           }
-          if (choice.finish_reason) {
-            finishReason = mapFinish(choice.finish_reason);
-          }
+        } catch {
+          /* ignore malformed sse chunk */
         }
-      } catch {
-        /* ignore malformed sse chunk */
       }
+    }
+  } finally {
+    try {
+      reader.releaseLock();
+    } catch {
+      /* reader already released */
     }
   }
 
@@ -451,10 +492,11 @@ const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta";
 async function geminiStream(
   model: string,
   messages: ChatMsg[],
-  tools: ToolSpec[] | undefined,
-  opts: { temperature: number; maxTokens: number },
+    tools: ToolSpec[] | undefined,
+  opts: { temperature: number; maxTokens: number; signal?: AbortSignal },
   onEvent: (ev: StreamEvent) => void
 ): Promise<StreamTurnResult> {
+  const signal = opts.signal;
   const key = geminiKey();
   if (!key) throw new Error("gemini: no API key");
 
@@ -506,7 +548,8 @@ async function geminiStream(
   const res = await fetchWithTimeout(
     `${GEMINI_BASE}/models/${model}:streamGenerateContent?alt=sse&key=${key}`,
     { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) },
-    LLM_CONNECT_TIMEOUT_MS
+    LLM_CONNECT_TIMEOUT_MS,
+    signal
   );
 
   if (!res.ok) {
@@ -523,8 +566,16 @@ async function geminiStream(
   let toolCalls: StreamTurnResult["toolCalls"] = [];
   let finishReason: "stop" | "tool_calls" | "length" | "error" | undefined;
 
-  while (true) {
-    const { done, value } = await reader.read();
+    while (true) {
+    if (signal?.aborted) break;
+    let done = false;
+    let value: Uint8Array | undefined;
+    try {
+      ({ done, value } = await reader.read());
+    } catch {
+      // route turn-timeout aborted the request — return whatever we collected
+      break;
+    }
     if (done) break;
     buf += dec.decode(value, { stream: true });
     let nl: number;
@@ -723,7 +774,7 @@ export async function generateJson(
   // --- Gemini (responseSchema) ---
   const key = geminiKey();
   if (key && schema) {
-    const model = "gemini-2.5-flash";
+    const model = geminiModel();
     const sysIdx = messages.findIndex((m) => m.role === "system");
     const system = sysIdx >= 0 ? messages[sysIdx].text : undefined;
     const contents = messages

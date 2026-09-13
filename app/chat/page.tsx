@@ -69,6 +69,7 @@ export default function ChatPage() {
 
     const ctrl = new AbortController();
     abortRef.current = ctrl;
+    let watchdog: ReturnType<typeof setInterval> | undefined;
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
@@ -83,16 +84,31 @@ export default function ChatPage() {
         const data = (await res.json().catch(() => null)) as { message?: string } | null;
         throw new Error(data?.message || `Request failed (${res.status})`);
       }
-      const reader = res.body.getReader();
+            const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
       let streamDone = false;
       let gotDoneEvent = false;
 
+      // Activity watchdog: if NO event (delta/tool/tool-done/done) arrives for 50s
+      // the synthesis stream has silently stalled (Gemini body went quiet while
+      // the server's per-turn timeout hadn't tripped yet). Abort the request so the
+      // read loop ends and the UI shows a cut-off notice instead of hanging on
+      // "Writing your report…" forever. Tool runs and healthy synthesis both emit
+      // events frequently, so only a real stall trips this.
+            let lastActivity = Date.now();
+      watchdog = setInterval(() => {
+        if (Date.now() - lastActivity > 50_000 && !streamDone) {
+          streamDone = true;
+          ctrl.abort();
+        }
+      }, 2_000);
+
       const processLine = (line: string) => {
         if (!line) return;
         let ev: StreamEv;
         try { ev = JSON.parse(line); } catch { return; }
+        lastActivity = Date.now();
         if (ev.t === "delta" && ev.v)
           patchAssistant(assistantId, (m) => ({ ...m, text: m.text + ev.v }));
         else if (ev.t === "tool" && ev.name)
@@ -120,7 +136,14 @@ export default function ChatPage() {
       };
 
       while (!streamDone) {
-        const { done, value } = await reader.read();
+        let done = false;
+        let value: Uint8Array | undefined;
+        try {
+          ({ done, value } = await reader.read());
+        } catch {
+          // aborted (user stop or activity watchdog) — drain buffer, then exit
+          break;
+        }
         buffer += decoder.decode(value ?? new Uint8Array(), { stream: true });
         let nl: number;
         while ((nl = buffer.indexOf("\n")) >= 0) {
@@ -129,6 +152,7 @@ export default function ChatPage() {
         }
         if (done) break;
       }
+      clearInterval(watchdog);
       processLine(buffer.trim());
       if (!gotDoneEvent) {
         patchAssistant(assistantId, (m) => ({
@@ -141,7 +165,8 @@ export default function ChatPage() {
     } catch (e: unknown) {
       const err = e as Error;
       if (err.name !== "AbortError") setError(err.message || "Request failed");
-    } finally {
+        } finally {
+      clearInterval(watchdog);
       abortRef.current = null;
       setBusy(false);
     }

@@ -194,6 +194,15 @@ export default function ChatPage() {
         </div>
       ) : null}
 
+      {/* Toolbar (outside the bubbles — report download lives here) */}
+      {lastReportId ? (
+        <div className="flex items-center justify-end border-b border-(--border) pb-2">
+          <button onClick={downloadReport} className="btn btn-sm">
+            ↓ Report .md
+          </button>
+        </div>
+      ) : null}
+
       {/* Messages */}
       <div className="flex-1 overflow-y-auto py-4">
         {msgs.length === 0 ? (
@@ -241,18 +250,9 @@ export default function ChatPage() {
                   <ToolChip key={i} ev={ev} />
                 ))}
                 {m.text.trim() ? (
-                  <>
-                    <div className="pl-1">
-                      <MiniMarkdown text={m.text} />
-                    </div>
-                    {m.id === lastReportId ? (
-                      <div className="flex justify-end">
-                        <button onClick={downloadReport} className="btn btn-sm">
-                          ↓ Download report (.md)
-                        </button>
-                      </div>
-                    ) : null}
-                  </>
+                  <div className="pl-1">
+                    <MiniMarkdown text={m.text} />
+                  </div>
                 ) : null}
               </div>
             )

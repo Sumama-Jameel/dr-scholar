@@ -2,9 +2,10 @@
  * lib/llm.ts — multi-backend LLM router (dependency-free).
  *
  * Priority:
- *   1. Qwen 3.8 27B via Groq OpenAI-compatible endpoint  (env: GROQ_API_KEY)
- *   2. Google Gemini 3.1 Pro via Gemini REST             (env: GEMINI_API_KEY / GOOGLE_API_KEY)
- *   3. Fallback: Google Gemini 2.5 Flash                 (same key, different model)
+ *   1. Google Gemini 2.5 Flash via Gemini REST  (env: GEMINI_API_KEY / GOOGLE_API_KEY)
+ *      — primary: most generous free tier (~250k tokens/min vs Groq 7k ITPM)
+ *   2. Qwen 3.8 27B via Groq OpenAI-compatible  (env: GROQ_API_KEY)
+ *   3. Fallback: Gemini 3.1 Pro preview         (same gemini key)
  *
  * Reliability:
  *   - Per-provider retry on 429/rate-limit (single retry, 3s backoff)
@@ -52,6 +53,14 @@ function isRateLimit(err: unknown): boolean {
   return /429|rate.?limit|too.many|throttl/i.test(msg);
 }
 
+/** Groq/Gemini 429 bodies include a hint like "try again in 10.44s" — honor it
+ *  (plus a small margin). Default 11s, which clears a 7k-ITPM token window. */
+function rateLimitRetryMs(err: unknown): number {
+  const msg = (err as Error)?.message ?? "";
+  const m = msg.match(/try again in ([\d.]+)s/i);
+  return m ? Math.ceil(parseFloat(m[1]) * 1000) + 500 : 11_000;
+}
+
 function geminiKey(): string | undefined {
   return process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY;
 }
@@ -68,19 +77,20 @@ export type BackendDesc = {
 export function llmBackends(): BackendDesc[] {
   const out: BackendDesc[] = [];
 
+  if (geminiKey()) {
+    out.push({ name: "gemini", model: "gemini-2.5-flash", available: true });
+    out.push({ name: "gemini", model: "gemini-3.1-pro-preview", available: true });
+  } else {
+    out.push({ name: "gemini", model: "gemini-2.5-flash", available: false, reason: "no gemini key" });
+  }
+
   if (process.env.GROQ_API_KEY) {
     out.push({ name: "groq", model: "qwen/qwen3.8-27b", available: true });
   } else {
     out.push({ name: "groq", model: "qwen/qwen3.8-27b", available: false, reason: "GROQ_API_KEY not set" });
   }
 
-  if (geminiKey()) {
-    out.push({ name: "gemini", model: "gemini-3.1-pro-preview", available: true });
-    out.push({ name: "gemini", model: "gemini-2.5-flash", available: true });
-  } else {
-    out.push({ name: "gemini", model: "gemini-3.1-pro-preview", available: false, reason: "no gemini key" });
-  }
-    return out;
+  return out;
 }
 
 /* ----------------------- helpers ----------------------- */
@@ -107,13 +117,26 @@ function mergeArgs(base: Record<string, unknown>, frag: string): Record<string, 
 
 function mapFinish(r: string): "stop" | "tool_calls" | "length" | "error" {
   if (r === "tool_calls") return "tool_calls";
-  if (r === "length") return "length";
+  // Gemini reports the output-token cap as "MAX_TOKENS" (OpenAI-style "length").
+  // Treating it as "stop" silently accepted truncated reports.
+  if (r === "length" || r === "MAX_TOKENS") return "length";
   return "stop";
 }
 
+/** Map JSON-Schema `type` values to Gemini's canonical UPPERCASE enum names. */
 const TYPE_MAP: Record<string, string> = {
-  OBJECT: "object", STRING: "string", ARRAY: "array",
-  INTEGER: "integer", BOOLEAN: "boolean", NUMBER: "number",
+  object: "OBJECT",
+  string: "STRING",
+  array: "ARRAY",
+  integer: "INTEGER",
+  boolean: "BOOLEAN",
+  number: "NUMBER",
+  OBJECT: "OBJECT",
+  STRING: "STRING",
+  ARRAY: "ARRAY",
+  INTEGER: "INTEGER",
+  BOOLEAN: "BOOLEAN",
+  NUMBER: "NUMBER",
 };
 
 /** Recursively lowercase all `type` values in a JSON Schema tree. */
@@ -145,8 +168,9 @@ async function withRetry<T>(
       return await fn();
     } catch (err: unknown) {
       if (isRateLimit(err) && attempt < maxRetries && !stopRetrying?.()) {
-        console.warn(`[llm] ${label} rate-limited, retrying once in 3s…`);
-        await sleep(3_000);
+        const delay = rateLimitRetryMs(err);
+        console.warn(`[llm] ${label} rate-limited, retrying once in ${Math.round(delay / 1000)}s…`);
+        await sleep(delay);
       } else {
         throw err;
       }
@@ -155,7 +179,16 @@ async function withRetry<T>(
   throw new Error("unreachable");
 }
 
-/** Fetch with a timeout to prevent hanging connections. */
+/* ----------------------- groq (Qwen) ----------------------- */
+
+const GROQ_BASE = "https://api.groq.com/openai/v1";
+// Connect-only guard: this bounds time-to-FIRST-BYTE, not the whole generation.
+// A long agent turn legitimately streams for 60-120s; aborting at 45s killed
+// reports mid-sentence. Body reading is bounded by the route's own deadlines.
+const LLM_CONNECT_TIMEOUT_MS = 30_000;
+
+/** Fetch that aborts only if response HEADERS don't arrive in time. Once headers
+ *  are in, the connection is healthy and the stream may run as long as needed. */
 async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -166,11 +199,6 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
     clearTimeout(timer);
   }
 }
-
-/* ----------------------- groq (Qwen) ----------------------- */
-
-const GROQ_BASE = "https://api.groq.com/openai/v1";
-const LLM_TIMEOUT_MS = 45_000;
 
 export async function streamTurn(
   messages: ChatMsg[],
@@ -200,7 +228,27 @@ export async function streamTurn(
       await sleep(3_000);
     }
 
-    // try groq first (Qwen primary)
+    // PRIMARY: Gemini 2.5 Flash — by far the most generous free tier
+    // (~250k tokens/min vs Groq's 7,000 input tokens/min), so it can absorb
+    // multi-round agent turns without 429ing on every request.
+    if (geminiKey()) {
+      try {
+        return await withRetry(
+          () => geminiStream("gemini-2.5-flash", messages, tools, { temperature, maxTokens }, guardedOnEvent),
+          "gemini:gemini-2.5-flash",
+          1,
+          stopRetrying
+        );
+      } catch (e: unknown) {
+        const msg = (e as Error).message;
+        errors.push("gemini 2.5-flash: " + msg);
+        console.warn("[llm] gemini 2.5-flash failed:", msg);
+        // Partial answer already streamed — re-streaming would duplicate it.
+        if (emitted) throw new Error("gemini 2.5-flash stream interrupted after partial output: " + msg);
+      }
+    }
+
+    // FALLBACK: Groq Qwen (tight free tier: 7,000 input tokens/minute).
     if (process.env.GROQ_API_KEY) {
       try {
         return await withRetry(
@@ -212,28 +260,26 @@ export async function streamTurn(
       } catch (e: unknown) {
         const msg = (e as Error).message;
         errors.push(`groq: ${msg}`);
-        console.warn("[llm] groq failed, falling back to gemini:", msg);
+        console.warn("[llm] groq failed:", msg);
         // Partial answer already streamed — re-streaming would duplicate it.
         if (emitted) throw new Error(`groq stream interrupted after partial output: ${msg}`);
       }
     }
 
-    // fallback: gemini 3.1 pro, then 2.5 flash
-    const candidates = ["gemini-3.1-pro-preview", "gemini-2.5-flash"];
-    for (const model of candidates) {
+    // LAST: Gemini 3.1 Pro preview (only exists on some keys — harmless miss).
+    if (geminiKey()) {
       try {
         return await withRetry(
-          () => geminiStream(model, messages, tools, { temperature, maxTokens }, guardedOnEvent),
-          `gemini:${model}`,
+          () => geminiStream("gemini-3.1-pro-preview", messages, tools, { temperature, maxTokens }, guardedOnEvent),
+          "gemini:gemini-3.1-pro-preview",
           1,
           stopRetrying
         );
       } catch (e: unknown) {
         const msg = (e as Error).message;
-        errors.push(`gemini ${model}: ${msg}`);
-        console.warn(`[llm] gemini ${model} failed:`, msg);
-        // Partial answer already streamed — don't cascade to another backend.
-        if (emitted) throw new Error(`gemini ${model} stream interrupted after partial output: ${msg}`);
+        errors.push("gemini 3.1-pro: " + msg);
+        console.warn("[llm] gemini 3.1-pro failed:", msg);
+        if (emitted) throw new Error("gemini 3.1-pro stream interrupted after partial output: " + msg);
       }
     }
   }
@@ -286,7 +332,7 @@ async function groqStream(
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
-  }, LLM_TIMEOUT_MS);
+  }, LLM_CONNECT_TIMEOUT_MS);
 
   if (!res.ok) {
     const txt = (await res.text()).slice(0, 400);
@@ -434,6 +480,12 @@ async function geminiStream(
     temperature: opts.temperature,
     maxOutputTokens: opts.maxTokens,
   };
+  // 2.5-flash runs "thinking" by default and silently spends the output-token
+  // budget on hidden reasoning — the visible report got truncated. Synthesis
+  // doesn't need reasoning tokens: disable them so text gets the full budget.
+  if (model.startsWith("gemini-2.5")) {
+    generationConfig.thinkingConfig = { thinkingBudget: 0 };
+  }
 
   const body: Record<string, unknown> = { contents, generationConfig };
   if (system) body.systemInstruction = { parts: [{ text: system }] };
@@ -443,11 +495,9 @@ async function geminiStream(
         {
           name: t.name,
           description: t.description,
-          parameters: {
-            type: "object",
-            properties: normalizeSchema(t.parameters),
-            ...(t.parameters.required ? { required: t.parameters.required } : {}),
-          },
+          // normalizeSchema already emits the full Schema (type/properties/
+          // required) — do NOT wrap it again, or Gemini 400s on every call.
+          parameters: normalizeSchema(t.parameters),
         },
       ],
     }));
@@ -456,7 +506,7 @@ async function geminiStream(
   const res = await fetchWithTimeout(
     `${GEMINI_BASE}/models/${model}:streamGenerateContent?alt=sse&key=${key}`,
     { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) },
-    LLM_TIMEOUT_MS
+    LLM_CONNECT_TIMEOUT_MS
   );
 
   if (!res.ok) {
@@ -648,7 +698,7 @@ export async function generateJson(
           temperature,
           max_tokens: 2048,
         }),
-      }, LLM_TIMEOUT_MS);
+      }, LLM_CONNECT_TIMEOUT_MS);
       groqStatus = String(res.status);
       if (res.ok) {
         const data = (await res.json()) as {
@@ -697,7 +747,7 @@ export async function generateJson(
             responseSchema: normalizeSchema(schema),
           },
         }),
-      }, LLM_TIMEOUT_MS);
+      }, LLM_CONNECT_TIMEOUT_MS);
       geminiStatus = String(res.status);
       if (res.ok) {
         const data = (await res.json()) as {

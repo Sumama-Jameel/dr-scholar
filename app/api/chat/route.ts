@@ -204,6 +204,10 @@ function buildFallbackDigest(log: { name: string; ok: boolean; result: unknown }
 
 /** Run a promise with a timeout. Rejects if it takes too long. */
 function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  // If the timeout wins the race, the loser's later rejection must not surface
+  // as an unhandled rejection (crashes the serverless function mid-stream).
+  // The race itself still propagates the loser's error when it arrives first.
+  void p.catch(() => {});
   return Promise.race([
     p,
     new Promise<T>((_, reject) =>
@@ -232,7 +236,9 @@ export async function POST(req: Request) {
   } catch {
     /* handled below */
   }
-  const history = Array.isArray(body.messages) ? body.messages.slice(-20) : [];
+  // Tight caps: each request must fit tiny free-tier token budgets
+  // (Groq free = 7,000 input tokens/MINUTE). Last 6 messages, 1.5k chars each.
+  const history = Array.isArray(body.messages) ? body.messages.slice(-6) : [];
   const profile = body.profile ?? null;
 
   const primary = backends.find((b) => b.available)?.model ?? "gemini-2.5-flash";
@@ -241,7 +247,7 @@ export async function POST(req: Request) {
 
   const messages: { role: "system" | "user" | "assistant"; text: string }[] = [{ role: "system", text: system }];
   for (const m of history.filter((m) => m.text?.trim())) {
-    messages.push({ role: m.role as "user" | "assistant", text: m.text.trim().slice(0, 8000) });
+    messages.push({ role: m.role as "user" | "assistant", text: m.text.trim().slice(0, 1500) });
   }
   if (!messages.some((m) => m.role === "user")) {
     messages.push({ role: "user", text: "Do a full deep scan for me (scholarships + internships)." });
@@ -278,6 +284,7 @@ export async function POST(req: Request) {
         const toolLog: { name: string; ok: boolean; args: Record<string, unknown>; result: unknown }[] = [];
         let toolRounds = 0;
         let reportSent = false;
+        let continued = false; // one bounded continuation for token-capped reports
 
         for (let step = 0; step < MAX_STEPS && Date.now() < hardDeadline; step++) {
           // After the tool rounds run out — or once research exists and time is
@@ -293,7 +300,7 @@ export async function POST(req: Request) {
             turn = await withTimeout(
               streamTurn(messages, toolsForTurn, (ev: StreamEvent) => {
                 if (ev.type === "text") send({ t: "delta", v: ev.text });
-              }, { temperature: 0.4, maxTokens: 4096 }),
+              }, { temperature: 0.4, maxTokens: 8192 }),
               PER_TURN_TIMEOUT_MS,
               `streamTurn step ${step}`
             );
@@ -317,8 +324,28 @@ export async function POST(req: Request) {
             messages.push({ role: "assistant", text: turn.text });
           }
           if (!turn.toolCalls.length) {
-            reportSent = true; // final answer fully streamed
-            break;
+            if (turn.text.trim() && turn.finishReason !== "length") {
+              reportSent = true; // final answer fully streamed
+              break;
+            }
+            if (turn.text.trim() && turn.finishReason === "length") {
+              // Report hit the output-token cap mid-sentence — continue exactly
+              // where it left off (once, only while real time remains).
+              if (!continued && Date.now() < hardDeadline - 20_000) {
+                continued = true;
+                messages.push({
+                  role: "user",
+                  text: "[system]: Your report was cut off mid-sentence by the output limit. Continue EXACTLY where you left off — same section, same style, no repeated content, no preamble.",
+                });
+                continue;
+              }
+              // No time for a continuation, but partial text was streamed.
+              reportSent = true;
+              break;
+            }
+            // Empty response (safety block / model refusal) — never mistake it
+            // for a report; fall through so the final-synthesis / digest paths run.
+            continue;
           }
 
           toolRounds++;
@@ -389,7 +416,7 @@ export async function POST(req: Request) {
             const finalTurn = await withTimeout(
               streamTurn(messages, undefined, (ev: StreamEvent) => {
                 if (ev.type === "text") send({ t: "delta", v: ev.text });
-              }, { temperature: 0.4, maxTokens: 4096 }),
+              }, { temperature: 0.4, maxTokens: 8192 }),
               Math.min(60_000, Math.max(10_000, hardDeadline - Date.now() - 5_000)),
               "final synthesis"
             );

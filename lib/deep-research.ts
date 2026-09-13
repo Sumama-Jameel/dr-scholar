@@ -242,6 +242,12 @@ export async function deepResearch(args: {
     }
   }
 
+  /* 1b) surface total search failure loudly (feeds the report + UI chips) */
+  if (!findings.some((f) => f.source === "web")) {
+    stats.note = (stats.note ? stats.note + "; " : "") +
+      "live web search unavailable (all engines empty or bot-gated) — curated catalog + jobs matches only";
+  }
+
   /* 2) deep-read top candidates in parallel batches within budget */
   const maxPages = Math.min(12, Math.max(2, args.maxPages ?? 10));
   const toRead = findings

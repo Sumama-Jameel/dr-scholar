@@ -64,64 +64,11 @@ function fmtMs(ms?: number): string {
   return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
 }
 
-const SOURCE_BADGE: Record<string, { label: string; cls: string }> = {
-  web: {
-    label: "WEB",
-    cls: "border-(--accent-primary)/30 bg-(--accent-primary-light) text-(--accent-primary)",
-  },
-  catalog: {
-    label: "CATALOG",
-    cls: "border-(--accent-success)/30 bg-(--accent-success)/10 text-(--accent-success)",
-  },
-  "jobs-api": {
-    label: "JOBS",
-    cls: "border-(--accent-gold)/40 bg-(--accent-gold)/10 text-(--accent-gold)",
-  },
+const DOT: Record<string, string> = {
+  web: "bg-(--accent-primary)",
+  catalog: "bg-(--accent-success)",
+  "jobs-api": "bg-(--accent-gold)",
 };
-
-function badgeFor(source?: string): { label: string; cls: string } {
-  return (
-    SOURCE_BADGE[source ?? ""] ?? {
-      label: (source ?? "WEB").toUpperCase(),
-      cls: "border-(--border-strong) bg-(--bg-surface) text-(--text-muted)",
-    }
-  );
-}
-
-function FindingCard({ f }: { f: ToolFinding }) {
-  const badge = badgeFor(f.source);
-  return (
-    <div className="rounded-lg border border-(--border) bg-white p-2.5">
-      <div className="flex items-start justify-between gap-2">
-        <a
-          href={f.url}
-          target="_blank"
-          rel="noreferrer"
-          className="text-[12px] font-medium leading-snug text-(--text-primary) hover:text-(--accent-primary) hover:underline"
-        >
-          {f.title.length > 90 ? f.title.slice(0, 87) + "…" : f.title}
-        </a>
-        <span
-          className={`shrink-0 rounded border px-1.5 py-0.5 text-[8px] font-bold tracking-wider ${badge.cls}`}
-        >
-          {badge.label}
-        </span>
-      </div>
-      <div className="mt-1.5 flex flex-wrap gap-1.5">
-        {f.deadline ? (
-          <span className="rounded border border-(--accent-gold)/40 bg-(--accent-gold)/10 px-1.5 py-0.5 text-[10px] font-medium text-(--accent-gold)">
-            ⏱ Due: {f.deadline}
-          </span>
-        ) : null}
-        {f.funding ? (
-          <span className="rounded border border-(--accent-success)/40 bg-(--accent-success)/10 px-1.5 py-0.5 text-[10px] font-medium text-(--accent-success)">
-            {f.funding}
-          </span>
-        ) : null}
-      </div>
-    </div>
-  );
-}
 
 export default function ToolChip({ ev }: { ev: ToolEvent }) {
   const [elapsed, setElapsed] = useState(0);
@@ -180,9 +127,23 @@ export default function ToolChip({ ev }: { ev: ToolEvent }) {
         {duration ? <span className="tabular-nums">{duration}</span> : null}
       </div>
       {shown.length ? (
-        <div className="mt-2 space-y-2">
+        <div className="mt-1 space-y-0.5 border-l-2 border-(--border) pl-2.5">
           {shown.map((f, i) => (
-            <FindingCard key={i} f={f} />
+            <div key={i} className="flex min-w-0 items-center gap-1.5 text-[11px] leading-5">
+              <span
+                className={`h-1.5 w-1.5 shrink-0 rounded-full ${DOT[f.source ?? "web"] ?? DOT.web}`}
+                title={(f.source ?? "web").toUpperCase()}
+              />
+              <a
+                href={f.url}
+                target="_blank"
+                rel="noreferrer"
+                title={f.title}
+                className="min-w-0 flex-1 truncate text-(--text-secondary) hover:text-(--accent-primary)"
+              >
+                {f.title}
+              </a>
+            </div>
           ))}
           {more > 0 ? (
             <p className="text-[10px] text-(--text-muted)">

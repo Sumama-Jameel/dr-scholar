@@ -84,7 +84,12 @@ export default function ProfilePage() {
   const LINE_KEYS = ["experience", "achievements"];
   const [drafts, setDrafts] = useState<Record<string, string>>({});
 
-  useEffect(() => setP(readProfileFromStorage()), []);
+  useEffect(() => {
+    const stored = readProfileFromStorage();
+    // Checkboxes must always have explicit boolean values — `undefined` left
+    // `needsFullFunding` unfilled forever, silently disabling the Save button.
+    setP({ needsFullFunding: false, remoteOnly: false, ...stored });
+  }, []);
 
   const set = (k: keyof ProfileInput, v: unknown) => setP((prev) => ({ ...prev, [k]: v }));
 
@@ -531,15 +536,23 @@ export default function ProfilePage() {
 
           {/* Save button */}
           <div className="sticky bottom-0 mt-12 border-t border-(--border) bg-(--bg-content) pt-5 pb-5">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4">
               {!requiredFieldsMet ? (
-                <span className="text-[11px] text-(--text-muted)">
-                  Missing: {missingRequired.map((f) => f.label).join(", ")}
+                <span
+                  className="min-w-0 flex-1 text-[11px] leading-relaxed text-(--accent-danger)"
+                  title="Fill these fields to enable saving"
+                >
+                  Fill in: {missingRequired.map((f) => f.label).join(", ")}
                 </span>
               ) : <span />}
               <button
                 onClick={save}
                 disabled={!requiredFieldsMet}
+                title={
+                  requiredFieldsMet
+                    ? undefined
+                    : `Fill in: ${missingRequired.map((f) => f.label).join(", ")}`
+                }
                 className="btn btn-primary btn-lg"
               >
                 Save & meet your agent →
